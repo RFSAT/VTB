@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Vapor-Trail Ballistic Calculator</string>
+    <string name="active_profile_summary">Rifle: %1$s\nBullet: %2$s\nScope: %3$s</string>
+    <string name="capture_trail">Capture Vapor Trail</string>
+    <string name="edit_profiles">Rifle / Bullet / Scope Profiles</string>
+    <string name="rifle_profile">Rifle Profile</string>
+    <string name="bullet_profile">Bullet Profile</string>
+    <string name="scope_profile">Scope Profile</string>
+    <string name="save">Save</string>
+    <string name="reset_defaults">Reset to Defaults</string>
+    <string name="mark_boresight">Tap the point of aim (target/crosshair) before firing</string>
+    <string name="mark_shot_break">Tap the frame where the shot breaks (muzzle flash / smoke)</string>
+    <string name="record">Record</string>
+    <string name="stop">Stop</string>
+    <string name="analyze_trail">Analyze Trail</string>
+    <string name="results">Results</string>
+    <string name="target_distance_yd">Target distance (yd)</string>
+    <string name="windage">Windage</string>
+    <string name="elevation">Elevation</string>
+</resources>

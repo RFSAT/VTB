@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView android:text="@string/rifle_profile" android:textStyle="bold" android:textSize="18sp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="8dp"/>
+        <EditText android:id="@+id/etRifleName" android:hint="Rifle name" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/etBarrelLength" android:hint="Barrel length (in)" android:inputType="numberDecimal" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/etTwistRate" android:hint="Twist rate (in per turn)" android:inputType="numberDecimal" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/etSightHeight" android:hint="Sight height over bore (in)" android:inputType="numberDecimal" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/etZeroDistance" android:hint="Zero distance (yd)" android:inputType="numberDecimal" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+        <TextView android:text="@string/bullet_profile" android:textStyle="bold" android:textSize="18sp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp"/>
+        <EditText android:id="@+id/etBulletName" android:hint="Bullet name" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/etCaliber" android:hint="Diameter (in)" android:inputType="numberDecimal" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/etWeightGrains" android:hint="Weight (grains)" android:inputType="numberDecimal" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/etMuzzleVelocity" android:hint="Muzzle velocity (fps)" android:inputType="numberDecimal" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/etBallisticCoefficient" android:hint="Ballistic coefficient (G1)" android:inputType="numberDecimal" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+        <TextView android:text="@string/scope_profile" android:textStyle="bold" android:textSize="18sp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp"/>
+        <EditText android:id="@+id/etScopeName" android:hint="Scope name" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <Spinner android:id="@+id/spinnerClickUnit" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+        <Button android:id="@+id/btnSave" android:text="@string/save" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp"/>
+        <Button android:id="@+id/btnResetDefaults" android:text="@string/reset_defaults" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"/>
+
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/previewView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:textSize="12sp"
+        android:text="@string/mark_boresight" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp">
+
+        <EditText android:id="@+id/etTargetDistance" android:hint="@string/target_distance_yd"
+            android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/etHorizontalFov" android:hint="Camera FOV (deg)"
+            android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+    <EditText android:id="@+id/etShotBreakSeconds" android:hint="Shot-break time in clip (s)"
+        android:inputType="numberDecimal" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginHorizontal="8dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp">
+
+        <Button android:id="@+id/btnRecord" android:text="@string/record"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+        <Button android:id="@+id/btnAnalyze" android:text="@string/analyze_trail"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+</LinearLayout>
