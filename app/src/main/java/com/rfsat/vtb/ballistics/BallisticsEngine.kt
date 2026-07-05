@@ -53,15 +53,23 @@ object BallisticsEngine {
      * coefficient to invert observed trail curvature back into an estimated
      * wind vector at each point along the flight.
      */
+    /** 1 lb/in^2 in kg/m^2 — G1 BCs are quoted in lb/in^2. */
+    private const val BC_LB_IN2_TO_KG_M2 = 703.069
+
     fun dragDecayRate(bullet: BulletProfile, atmosphere: Atmosphere, relativeSpeedMps: Double): Double {
         val speed = max(relativeSpeedMps, 1e-6)
         val mach = speed / atmosphere.speedOfSound
         val cd = dragCoefficient(mach) * bullet.dragCalibrationFactor
-        // BC scales the effective ballistic mass: higher BC -> less drag for
-        // a given shape. We fold it in as a divisor on the drag term, which
-        // is the standard convention (BC = sectional density / form factor).
-        return 0.5 * atmosphere.airDensity * cd *
-            bullet.crossSectionalAreaM2 / (bullet.massKg * bullet.ballisticCoefficientG1)
+        // STANDARD BC-referenced retardation: a = rho * v^2 * Cd_ref(M) / (2 * BC_SI),
+        // i.e. per-distance decay rate k [1/m] = rho * Cd_ref(M) / (2 * BC_SI).
+        // The G1 BC (lb/in^2 -> kg/m^2) IS the bullet's effective sectional
+        // density; it must NOT be combined with the bullet's own mass and
+        // cross-section. The previous formula did exactly that (divided the
+        // physical m/A drag by BC=0.139 again), inflating drag ~7x: the
+        // simulated .22LR stalled short of a 200 m target and then FELL for
+        // the rest of simulate()'s 10 s budget — the "15 km drop" bug.
+        return 0.5 * atmosphere.airDensity * cd /
+            (bullet.ballisticCoefficientG1 * BC_LB_IN2_TO_KG_M2)
     }
 
     /** Convenience: the coefficient K such that drag accel = -K * (velocity - wind). */
@@ -108,7 +116,12 @@ object BallisticsEngine {
         var nextSample = 0.0
         val out = mutableListOf<TrajectoryPoint>()
 
-        while (pos.x < maxRangeM && t < 10.0) {
+        // Guards besides range: a hard time cap, a "hit the ground" cutoff
+        // (60 m below the sight line is beyond any sane engagement), and a
+        // horizontal-stall cutoff — a bullet that has stopped moving
+        // downrange can never reach the target, and integrating its free
+        // fall only manufactures absurd numbers.
+        while (pos.x < maxRangeM && t < 10.0 && pos.y > -60.0 && vel.x > 5.0) {
             if (t >= nextSample) {
                 out.add(TrajectoryPoint(t, pos, vel))
                 nextSample += sampleEveryS
@@ -152,7 +165,7 @@ object BallisticsEngine {
             return atZero.position.y - sightHeightM
         }
         var lo = -0.02
-        var hi = 0.05
+        var hi = 0.12 // ~6.9 deg — covers slow subsonic loads zeroed at 200 m+
         repeat(60) {
             val mid = (lo + hi) / 2
             if (dropAtZeroForPitch(mid) < 0) lo = mid else hi = mid

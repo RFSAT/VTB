@@ -18,42 +18,42 @@
         <TextView android:text="@string/rifle_profile" android:textStyle="bold" android:textSize="18sp"
             android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="8dp"/>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Name" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Name" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etRifleName" android:hint="Rifle name" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Barrel" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Barrel (in)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etBarrelLength" android:hint="in" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Twist" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Twist (in/t)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etTwistRate" android:hint="in/turn" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Zero" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:id="@+id/tvZeroLabel" android:text="Zero (m)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etZeroDistance" android:hint="distance" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
 
         <TextView android:text="@string/bullet_profile" android:textStyle="bold" android:textSize="18sp"
             android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp"/>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Name" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Name" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etBulletName" android:hint="Bullet name" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Dia" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Dia (in)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etCaliber" android:hint="in" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Wgt" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Wgt (gr)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etWeightGrains" android:hint="grains" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="MV" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="MV (fps)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etMuzzleVelocity" android:hint="fps" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="BC" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="BC (G1)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etBallisticCoefficient" android:hint="G1" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
 
@@ -61,25 +61,25 @@
             android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp"/>
         <Spinner android:id="@+id/spinnerScopePreset" android:layout_width="match_parent" android:layout_height="wrap_content"/>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Name" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Name" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etScopeName" android:hint="Scope name" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Zoom" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Zoom (x)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etZoomMin" android:hint="min x" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
             <EditText android:id="@+id/etZoomMax" android:hint="max x" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Optics" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Optics (mm)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etObjectiveDiameter" android:hint="obj mm" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
             <EditText android:id="@+id/etFocalLength" android:hint="FL mm" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Height" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Height (in)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etHeightAboveBarrel" android:hint="in" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:text="Click" android:textSize="13sp" android:layout_width="64dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
+            <TextView android:text="Click" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <Spinner android:id="@+id/spinnerClickUnit" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         </LinearLayout>
 

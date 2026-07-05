@@ -75,7 +75,7 @@ class ProfileActivity : BaseActivity() {
             etRifleName.setText(rifle.name)
             etBarrelLength.setText(rifle.barrelLengthIn.toString())
             etTwistRate.setText(rifle.twistRateInPerTurn.toString())
-            etZeroDistance.hint = com.rfsat.vtb.ui.UnitsManager.distanceUnitLabel()
+            tvZeroLabel.text = "Zero (${com.rfsat.vtb.ui.UnitsManager.distanceUnitLabel()})"
             etZeroDistance.setText(String.format("%.1f",
                 com.rfsat.vtb.ui.UnitsManager.displayDistance(rifle.zeroDistanceM)))
 

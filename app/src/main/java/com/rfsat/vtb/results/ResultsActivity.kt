@@ -24,18 +24,32 @@ class ResultsActivity : BaseActivity() {
             binding.tvRowTarget.text = "No analysis yet — run a capture first."
             return
         }
+        if (!adjustment.valid) {
+            // Simulation never reached the target: the numbers are garbage
+            // by construction — show why instead of showing them.
+            binding.tvWindageBig.text = "—"
+            binding.tvElevationBig.text = "—"
+            binding.tvRowTarget.text =
+                "Target: ${fmt1(UnitsManager.displayDistance(AnalysisSession.targetDistanceYd * 0.9144))} " +
+                UnitsManager.distanceUnitLabel()
+            binding.tvWarnings.visibility = View.VISIBLE
+            binding.tvWarnings.text = adjustment.warnings.joinToString("\n") { "\u26A0 $it" }
+            return
+        }
 
         // Arrows show the direction to TURN: ◀▶ windage, ▲▼ elevation.
         val windArrow = if (adjustment.windageDirection == "LEFT") "\u25C0" else "\u25B6"
         val elevArrow = if (adjustment.elevationDirection == "UP") "\u25B2" else "\u25BC"
 
-        binding.tvWindageBig.text = "$windArrow${fmt2(abs(adjustment.windageScopeUnits))}"
-        binding.tvWindageDetail.text =
-            "${adjustment.scopeUnitLabel} · ${abs(adjustment.windageClicks)} clk ${adjustment.windageDirection}"
+        binding.tvWindageBig.text =
+            "$windArrow ${fmt2(abs(adjustment.windageScopeUnits))} ${adjustment.scopeUnitLabel}"
+        binding.tvWindageCaption.text =
+            "WINDAGE — ${abs(adjustment.windageClicks)} clk ${adjustment.windageDirection}"
 
-        binding.tvElevationBig.text = "$elevArrow${fmt2(abs(adjustment.elevationScopeUnits))}"
-        binding.tvElevationDetail.text =
-            "${adjustment.scopeUnitLabel} · ${abs(adjustment.elevationClicks)} clk ${adjustment.elevationDirection}"
+        binding.tvElevationBig.text =
+            "$elevArrow ${fmt2(abs(adjustment.elevationScopeUnits))} ${adjustment.scopeUnitLabel}"
+        binding.tvElevationCaption.text =
+            "ELEVATION — ${abs(adjustment.elevationClicks)} clk ${adjustment.elevationDirection}"
 
         val dU = UnitsManager.distanceUnitLabel()
         val sU = UnitsManager.speedUnitLabel()

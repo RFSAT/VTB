@@ -16,82 +16,49 @@
         android:paddingEnd="12dp"
         android:paddingTop="8dp">
 
-        <!-- Correction readouts: auto-sized to fill the width -->
-        <LinearLayout
+        <!-- Correction readouts: one full-width line each, auto-sized as
+             large as the width allows; the chart absorbs whatever is left -->
+        <TextView
+            android:id="@+id/tvWindageCaption"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:maxLines="1"
+            android:textSize="13sp"
+            android:letterSpacing="0.12"
+            android:text="WINDAGE" />
 
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal">
+        <TextView
+            android:id="@+id/tvWindageBig"
+            android:layout_width="match_parent"
+            android:layout_height="108dp"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textStyle="bold"
+            android:textColor="?attr/colorAccent"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="24sp"
+            android:autoSizeMaxTextSize="110sp" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="WINDAGE"
-                    android:textSize="13sp"
-                    android:letterSpacing="0.15" />
+        <TextView
+            android:id="@+id/tvElevationCaption"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:textSize="13sp"
+            android:letterSpacing="0.12"
+            android:text="ELEVATION" />
 
-                <TextView
-                    android:id="@+id/tvWindageBig"
-                    android:layout_width="match_parent"
-                    android:layout_height="86dp"
-                    android:gravity="center"
-                    android:maxLines="1"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorAccent"
-                    android:autoSizeTextType="uniform"
-                    android:autoSizeMinTextSize="24sp"
-                    android:autoSizeMaxTextSize="80sp" />
-
-                <TextView
-                    android:id="@+id/tvWindageDetail"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:textSize="14sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="ELEVATION"
-                    android:textSize="13sp"
-                    android:letterSpacing="0.15" />
-
-                <TextView
-                    android:id="@+id/tvElevationBig"
-                    android:layout_width="match_parent"
-                    android:layout_height="86dp"
-                    android:gravity="center"
-                    android:maxLines="1"
-                    android:textStyle="bold"
-                    android:textColor="?attr/colorAccent"
-                    android:autoSizeTextType="uniform"
-                    android:autoSizeMinTextSize="24sp"
-                    android:autoSizeMaxTextSize="80sp" />
-
-                <TextView
-                    android:id="@+id/tvElevationDetail"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:textSize="14sp" />
-            </LinearLayout>
-        </LinearLayout>
+        <TextView
+            android:id="@+id/tvElevationBig"
+            android:layout_width="match_parent"
+            android:layout_height="108dp"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textStyle="bold"
+            android:textColor="?attr/colorAccent"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="24sp"
+            android:autoSizeMaxTextSize="110sp" />
 
         <!-- Compact one-line detail rows (auto-shrink to always fit) -->
         <TextView

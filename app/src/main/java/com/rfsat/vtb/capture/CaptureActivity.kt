@@ -56,6 +56,11 @@ class CaptureActivity : BaseActivity() {
     private var autoStopJob: kotlinx.coroutines.Job? = null
 
     companion object {
+        /** Seconds of post-settle trail drift to record/track for the wind
+         *  estimate. More = better fit statistics, at the cost of decode time
+         *  (frames are sampled every 33 ms). */
+        private const val DRIFT_OBSERVATION_S = 2.5
+
         private const val TAG = "CaptureActivity"
         // Rough budget for mic-buffer read latency + detection loop polling +
         // CameraX recorder startup — the trail's first fraction of a second
@@ -152,7 +157,15 @@ class CaptureActivity : BaseActivity() {
             videoCapture = capture
 
             provider.unbindAll()
-            provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+            val camera = provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+            // Auto-FOV: fill the field from the real optics now and whenever
+            // the zoom changes (a zoom change invalidates any manual value).
+            // The field stays editable for imported clips from other devices.
+            camera.cameraInfo.zoomState.observe(this) {
+                CameraFovProvider.horizontalFovDeg(camera)?.let { fov ->
+                    binding.etHorizontalFov.setText(String.format("%.1f", fov))
+                }
+            }
         }, ContextCompat.getMainExecutor(this))
     }
 
@@ -319,8 +332,23 @@ class CaptureActivity : BaseActivity() {
                 }
                 Logger.i(TAG, "Video copied to cache: ${localFile.absolutePath} (${localFile.length() / 1024} KB)")
 
+                // TOF along the ZEROED trajectory, computed up-front: it sizes
+                // the tracking window AND the estimator's settle threshold, so
+                // both stay consistent with the zero calibration the solver uses.
+                val targetDistanceM = targetDistanceYd * 0.9144
+                val tofS = BallisticsEngine.zeroedTimeOfFlight(
+                    bullet, atmosphere, targetDistanceM,
+                    activeRifle.zeroDistanceM,
+                    AdjustmentCalculator.effectiveSightHeightM(activeRifle, scope)
+                )
+                val settleS = tofS * 1.2
+                // Track for settle + DRIFT_OBSERVATION_S of usable drift. The
+                // old fixed 2.0 s window starved the estimator at long range:
+                // at 300 m settle alone is ~2 s, leaving zero usable frames.
                 val extraction = TrailExtractor.extract(
-                    localFile.absolutePath, shotBreakOffsetS, externalReferenceBitmap = referenceBitmap
+                    localFile.absolutePath, shotBreakOffsetS,
+                    clipDurationAfterShotS = settleS + DRIFT_OBSERVATION_S,
+                    externalReferenceBitmap = referenceBitmap
                 )
                 localFile.delete()
                 val observations = extraction.observations
@@ -349,20 +377,11 @@ class CaptureActivity : BaseActivity() {
                     boresightPixelY = boresightYNorm * frameHeightPx
                 )
 
-                val targetDistanceM = targetDistanceYd * 0.9144
-                // Trail drift only measures wind AFTER the bullet has passed;
-                // during flight the centroid motion is trail formation. TOF is
-                // taken along the ZEROED trajectory so the settle window stays
-                // consistent with the zero calibration used by the solver.
-                val tofS = BallisticsEngine.zeroedTimeOfFlight(
-                    bullet, atmosphere, targetDistanceM,
-                    activeRifle.zeroDistanceM,
-                    AdjustmentCalculator.effectiveSightHeightM(activeRifle, scope)
-                )
                 val windSamples = WindEstimator.estimate(
-                    calibration, observations, targetDistanceM, settleTimeS = tofS * 1.2
+                    calibration, observations, targetDistanceM, settleTimeS = settleS
                 )
-                Logger.i(TAG, "Estimated ${windSamples.size} wind samples (settle=${"%.2f".format(tofS * 1.2)}s)")
+                Logger.i(TAG, "Estimated ${windSamples.size} wind samples " +
+                    "(tof=${"%.2f".format(tofS)}s settle=${"%.2f".format(settleS)}s)")
 
                 val adjustment = AdjustmentCalculator.computeAdjustment(
                     bullet, activeRifle, scope, atmosphere, targetDistanceYd, windSamples

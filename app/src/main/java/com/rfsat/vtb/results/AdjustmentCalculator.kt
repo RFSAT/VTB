@@ -25,7 +25,10 @@ data class ScopeAdjustment(
     val estimatedVerticalWindMps: Double,  // +up
     val windConfidence: Double,            // 0..1
     val impactOffsetMAtTarget: Vec3,  // diagnostic: last shot's landing point vs POA, metres (x unused)
-    val warnings: List<String>        // practicality/sanity flags for the Results screen
+    val warnings: List<String>,       // practicality/sanity flags for the Results screen
+    /** false when the simulated trajectory never reached the target — the
+     *  numbers above are then meaningless and must not be displayed. */
+    val valid: Boolean = true
 )
 
 object AdjustmentCalculator {
@@ -83,8 +86,9 @@ object AdjustmentCalculator {
             wind = { _, _ -> uniformWind }
         )
         val atTarget = traj.lastOrNull { it.position.x <= targetDistanceM } ?: traj.last()
-        if (atTarget.position.x < targetDistanceM * 0.95) {
-            warnings.add("Simulated trajectory fell short of the target distance — check bullet profile.")
+        val reachedTarget = atTarget.position.x >= targetDistanceM * 0.95
+        if (!reachedTarget) {
+            warnings.add("Simulated trajectory fell short of the target — check bullet profile / target distance.")
         }
 
         // Line of sight is level and starts sightHeightM above the bore.
@@ -133,7 +137,8 @@ object AdjustmentCalculator {
             estimatedVerticalWindMps = vertMps,
             windConfidence = windConf,
             impactOffsetMAtTarget = Vec3(0.0, verticalMissM, lateralMissM),
-            warnings = warnings
+            warnings = warnings,
+            valid = reachedTarget
         )
     }
 
