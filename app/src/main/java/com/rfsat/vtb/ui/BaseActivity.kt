@@ -10,6 +10,40 @@ open class BaseActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeManager.apply(this)
         super.onCreate(savedInstanceState)
+        enterFullScreen()
+    }
+
+    /** Bars can transiently reappear (keyboard dismiss, edge swipe, dialog)
+     *  — re-hide whenever the window regains focus so the app STAYS
+     *  full-screen, not just starts that way. */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) enterFullScreen()
+    }
+
+    /**
+     * Immersive full-screen (v13.1): hides status + navigation bars on every
+     * screen. A swipe from the top/bottom edge shows them transiently and
+     * they auto-hide again (BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE).
+     *
+     * Deliberately does NOT call setDecorFitsSystemWindows(false): with the
+     * bars hidden the content already fills the screen, and leaving decor
+     * fitting enabled keeps the default IME resize behaviour intact — the
+     * capture screen's EditTexts must not end up under the keyboard.
+     */
+    private fun enterFullScreen() {
+        val controller = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior =
+            androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        // Draw into the camera-cutout strip too (S24 punch-hole) — otherwise
+        // a letterboxed black band remains where the status bar used to be.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
     }
 
     /**
