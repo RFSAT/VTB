@@ -47,6 +47,28 @@ object AnalysisSession {
             .edit().putString(KEY, json).apply()
     }
 
+    /**
+     * v16.2: warning TEXTS are stored inside the payload, so an analysis
+     * saved by an older APK replays its old wording after an upgrade —
+     * which made the v16.1 warning rewrite look unimplemented on a device
+     * with a stored result. Rewrite known legacy strings to the current
+     * short forms on restore; unknown strings pass through untouched.
+     */
+    private fun migrateLegacyWarnings(adj: ScopeAdjustment): ScopeAdjustment {
+        if (adj.warnings.isEmpty()) return adj
+        val pct = Regex("""(\d+)%""")
+        val migrated = adj.warnings.map { w ->
+            when {
+                w.startsWith("TESTING MODE: confidence") ->
+                    "Confidence ${pct.find(w)?.groupValues?.get(1) ?: "?"}% below threshold (5%)."
+                w.startsWith("Low tracking confidence") ->
+                    "Low confidence — use wind estimate with caution."
+                else -> w
+            }
+        }
+        return if (migrated == adj.warnings) adj else adj.copy(warnings = migrated)
+    }
+
     /** Call once at app start; no-op if nothing stored or already loaded. */
     fun restore(context: Context) {
         if (adjustment != null) return
@@ -56,7 +78,7 @@ object AnalysisSession {
         // match the current data classes — treat it as absent, don't crash.
         runCatching { gson.fromJson(json, Payload::class.java) }.getOrNull()?.let {
             windSamples = it.windSamples
-            adjustment = it.adjustment
+            adjustment = it.adjustment.let(::migrateLegacyWarnings)
             targetDistanceYd = it.targetDistanceYd
             baseFovDeg = it.baseFovDeg
             cameraZoom = it.cameraZoom

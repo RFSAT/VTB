@@ -83,8 +83,7 @@ object AdjustmentCalculator {
             crossMps = 0.0; vertMps = 0.0
         } else if (ENFORCE_MIN_CONFIDENCE && windConf < MIN_USABLE_CONFIDENCE) {
             warnings.add(
-                "Tracking confidence too low (${(windConf * 100).toInt()}%) for a usable wind estimate — " +
-                "falling back to a zero-wind solution."
+                "Confidence ${(windConf * 100).toInt()}% below threshold (${(MIN_USABLE_CONFIDENCE * 100).toInt()}%) — zero-wind solution."
             )
             crossMps = 0.0; vertMps = 0.0
         } else {
