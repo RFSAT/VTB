@@ -77,12 +77,50 @@ class ProfileRepository(context: Context) {
     }
 
     fun resetToDefaults() {
-        prefs.edit().clear().apply()
+        // Only the ACTIVE profiles reset — saved profile sets (v16.0) are a
+        // library the user built up; a full prefs.clear() would wipe them.
+        prefs.edit().remove(KEY_RIFLE).remove(KEY_BULLET).remove(KEY_SCOPE).apply()
+    }
+
+    // ---- Named profile sets (v16.0) ----
+    // A snapshot of rifle+bullet+scope under one name, so wind measured
+    // with one rig can be re-applied to compute corrections for another.
+
+    fun getSets(): List<ProfileSet> {
+        val json = prefs.getString(KEY_SETS, null) ?: return emptyList()
+        return runCatching {
+            gson.fromJson<List<ProfileSet>>(
+                json,
+                com.google.gson.reflect.TypeToken.getParameterized(List::class.java, ProfileSet::class.java).type
+            )
+        }.getOrNull()?.filter { it.name.isNotBlank() }
+            // Guard against pre-v9 zero semantics sneaking in via hand-edited JSON.
+            ?.map { if (it.rifle.zeroDistanceM <= 0.0) it.copy(rifle = it.rifle.copy(zeroDistanceM = RifleProfile.DEFAULT.zeroDistanceM)) else it }
+            ?: emptyList()
+    }
+
+    /** Insert or replace by name. */
+    fun saveSet(set: ProfileSet) {
+        val updated = getSets().filter { it.name != set.name } + set
+        prefs.edit().putString(KEY_SETS, gson.toJson(updated)).apply()
+    }
+
+    fun deleteSet(name: String) {
+        prefs.edit().putString(KEY_SETS, gson.toJson(getSets().filter { it.name != name })).apply()
     }
 
     companion object {
         private const val KEY_RIFLE = "rifle_profile"
         private const val KEY_BULLET = "bullet_profile"
         private const val KEY_SCOPE = "scope_profile"
+        private const val KEY_SETS = "profile_sets"
     }
 }
+
+/** A named rifle+bullet+scope combination (v16.0). */
+data class ProfileSet(
+    val name: String,
+    val rifle: RifleProfile,
+    val bullet: BulletProfile,
+    val scope: ScopeProfile
+)

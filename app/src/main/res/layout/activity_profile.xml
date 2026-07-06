@@ -64,6 +64,64 @@
             android:textSize="14sp"
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
 
+        <!-- Drop calibration (v15.0): the engine's Cd(M) curve is a
+             physically-reasonable approximation, not a certified G1 table,
+             so official manufacturer drop data is the ground truth. Enter
+             one point from the ammo maker's ballistic table (with THAT
+             table's stated zero) and the app solves dragCalibrationFactor
+             so the simulated drop matches it exactly. -->
+        <TextView android:text="Drop calibration — official ballistic table"
+            android:textStyle="bold" android:textSize="14sp"
+            android:layout_marginTop="12dp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:id="@+id/tvTableZeroLabel" android:text="Table zero" android:textSize="12sp"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                <EditText android:id="@+id/etTableZero" android:inputType="numberDecimal"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            </LinearLayout>
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:id="@+id/tvTableRangeLabel" android:text="Range" android:textSize="12sp"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                <EditText android:id="@+id/etTableRange" android:inputType="numberDecimal"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            </LinearLayout>
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:id="@+id/tvTableDropLabel" android:text="Drop" android:textSize="12sp"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                <EditText android:id="@+id/etTableDrop" android:inputType="numberDecimal"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            </LinearLayout>
+        </LinearLayout>
+        <Button android:id="@+id/btnCalibrateDrag"
+            android:text="Calibrate drag from official drop"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <TextView android:id="@+id/tvDragFactor" android:textSize="12sp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <TextView android:id="@+id/tvDropTable" android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="4dp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+
+        <!-- Profile sets (v16.0): named rifle+bullet+scope snapshots. Wind
+             measured with one set can be re-applied on the Results screen
+             to compute corrections for another. -->
+        <TextView android:text="Profile sets"
+            android:textStyle="bold" android:textSize="14sp"
+            android:layout_marginTop="12dp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <Spinner android:id="@+id/spinnerProfileSets"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/btnSaveSet" android:text="Save as set"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+            <Button android:id="@+id/btnLoadSet" android:text="Load"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+            <Button android:id="@+id/btnDeleteSet" android:text="Delete"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+        </LinearLayout>
+
         <TextView android:text="@string/scope_profile" android:textStyle="bold" android:textSize="18sp"
             android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp"/>
         <Spinner android:id="@+id/spinnerScopePreset" android:layout_width="match_parent" android:layout_height="wrap_content"/>

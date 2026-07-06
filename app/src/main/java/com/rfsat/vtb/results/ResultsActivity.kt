@@ -76,10 +76,116 @@ class ResultsActivity : BaseActivity() {
                 adjustment.warnings.joinToString("\n") { "\u26A0 $it" }
         }
 
-        binding.windChart.setSeries(
-            AnalysisSession.windSamples.map { it.timeS to UnitsManager.displaySpeed(it.crosswindMps) }
+        // Chart x-axis (v15.0): DISTANCE where it's physical, time otherwise.
+        //  TRACER — each sample is the bullet at a known downrange x, so
+        //    crosswind-vs-distance is the natural (and requested) axis.
+        //  VAPOR — the estimator assigns every drift sample the same
+        //    effective distance (the trail centroid, ~half the range): a
+        //    distance axis would collapse to a vertical line, so the drift
+        //    timeline keeps the time axis there.
+        val samples = AnalysisSession.windSamples
+        val distSpreadM =
+            if (samples.isEmpty()) 0.0
+            else samples.maxOf { it.downrangeM } - samples.minOf { it.downrangeM }
+        if (distSpreadM > 1.0) {
+            binding.windChart.setSeries(
+                samples.sortedBy { it.downrangeM }
+                    .map { UnitsManager.displayDistance(it.downrangeM) to UnitsManager.displaySpeed(it.crosswindMps) }
+            )
+            binding.windChart.title = "Crosswind vs. distance ($dU / $sU, +right)"
+        } else {
+            binding.windChart.setSeries(
+                samples.map { it.timeS to UnitsManager.displaySpeed(it.crosswindMps) }
+            )
+            binding.windChart.title = "Crosswind vs. s after shot ($sU, +right)"
+        }
+
+        // v16.0: wind transfer — the measured wind is a property of the air,
+        // so it can drive a correction for ANY saved rifle/bullet/scope set.
+        if (samples.isNotEmpty()) {
+            binding.btnApplyToSet.visibility = View.VISIBLE
+            binding.btnApplyToSet.setOnClickListener { promptWindTransfer() }
+        }
+    }
+
+    /** Pick a saved profile set + engagement distance, recompute the scope
+     *  correction from THIS analysis' wind samples with that set's
+     *  ballistics, zero and click unit. The original analysis on screen is
+     *  untouched — results show in a dialog, clearly marked as transferred. */
+    private fun promptWindTransfer() {
+        val repo = com.rfsat.vtb.profiles.ProfileRepository(this)
+        val sets = repo.getSets()
+        if (sets.isEmpty()) {
+            android.widget.Toast.makeText(this,
+                "No saved profile sets — create them in Profiles (\"Save as set\").",
+                android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        val um = UnitsManager
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(48, 16, 48, 0)
+        }
+        val spinner = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(
+                this@ResultsActivity, android.R.layout.simple_spinner_dropdown_item, sets.map { it.name })
+        }
+        val distLabel = android.widget.TextView(this).apply {
+            text = "Engagement distance (${um.distanceUnitLabel()})"
+            textSize = 12f
+        }
+        val distInput = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(String.format("%.0f", um.displayDistance(AnalysisSession.targetDistanceYd * 0.9144)))
+        }
+        container.addView(spinner); container.addView(distLabel); container.addView(distInput)
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Apply measured wind to…")
+            .setView(container)
+            .setPositiveButton("Compute") { _, _ ->
+                val set = sets.getOrNull(spinner.selectedItemPosition) ?: return@setPositiveButton
+                val distM = distInput.text.toString().toDoubleOrNull()?.let { um.inputDistanceToMeters(it) }
+                    ?: AnalysisSession.targetDistanceYd * 0.9144
+                showTransferredAdjustment(set, distM)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showTransferredAdjustment(set: com.rfsat.vtb.profiles.ProfileSet, targetDistanceM: Double) {
+        val adj = AdjustmentCalculator.computeAdjustment(
+            set.bullet, set.rifle, set.scope,
+            com.rfsat.vtb.ballistics.Atmosphere(),
+            targetDistanceYd = targetDistanceM / 0.9144,
+            windSamples = AnalysisSession.windSamples
         )
-        binding.windChart.title = "Crosswind vs. s after shot ($sU, +right)"
+        val um = UnitsManager
+        val msg = StringBuilder()
+        if (!adj.valid) {
+            msg.append("The simulated trajectory for this set never reached ")
+                .append("%.0f %s — check its muzzle velocity, BC and zero.".format(
+                    um.displayDistance(targetDistanceM), um.distanceUnitLabel()))
+        } else {
+            msg.append("Windage: ${adj.windageClicks} clicks ${adj.windageDirection} " +
+                "(%.2f ${adj.scopeUnitLabel})\n".format(kotlin.math.abs(adj.windageScopeUnits)))
+            msg.append("Elevation: ${adj.elevationClicks} clicks ${adj.elevationDirection} " +
+                "(%.2f ${adj.scopeUnitLabel})\n\n".format(kotlin.math.abs(adj.elevationScopeUnits)))
+            msg.append("Wind used: %.1f %s cross · confidence %d%%\n\n".format(
+                um.displaySpeed(kotlin.math.abs(adj.estimatedCrosswindMps)),
+                um.speedUnitLabel(), (adj.windConfidence * 100).toInt()))
+            // Transfer honesty: what carries over and what doesn't.
+            msg.append("\u26A0 Transferred wind: valid for shots moments after the " +
+                "measurement (wind is gusty), and measured along the ORIGINAL " +
+                "shot's path — a different bearing or a much longer range may " +
+                "see different air.\n")
+            for (w in adj.warnings) msg.append("\u26A0 $w\n")
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Correction for \"${set.name}\"")
+            .setMessage(msg.toString().trimEnd())
+            .setPositiveButton("Close", null)
+            .show()
     }
 
     /** Camera calibration this analysis used, e.g. " · 46.1° @3.0× → 15.9°".
