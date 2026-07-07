@@ -229,10 +229,12 @@ class ProfileActivity : BaseActivity() {
                     // drop at that range. atan, not the small-angle shortcut,
                     // though they agree to <0.1% at rifle angles.
                     val mrad = kotlin.math.atan(kotlin.math.abs(drop) / rM) * 1000.0
-                    sb.append("%4d %s: %s%.1f %s  %s%.2f MRAD\n".format(
-                        step, um.distanceUnitLabel(), sign,
-                        um.displayOffset(kotlin.math.abs(drop)), um.offsetUnitLabel(),
-                        if (drop >= 0) "+" else "-", mrad))
+                    // Fixed-width right-aligned value columns (monospace font),
+                    // matching the right-aligned distance column.
+                    val dropStr = "%s%.1f".format(sign, um.displayOffset(kotlin.math.abs(drop)))
+                    val mradStr = "%s%.2f".format(if (drop >= 0) "+" else "-", mrad)
+                    sb.append("%4d %s: %8s %s %7s MRAD\n".format(
+                        step, um.distanceUnitLabel(), dropStr, um.offsetUnitLabel(), mradStr))
                 }
                 step += 25
             }

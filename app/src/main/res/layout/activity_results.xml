@@ -61,36 +61,75 @@
             android:autoSizeMaxTextSize="110sp" />
 
         <!-- Compact one-line detail rows (auto-shrink to always fit) -->
-        <TextView
-            android:id="@+id/tvRowTarget"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:maxLines="1"
-            android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="9sp"
-            android:autoSizeMaxTextSize="14sp"
-            android:fontFamily="monospace" />
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Target"
+                android:textSize="14sp"
+                android:fontFamily="monospace" />
+            <TextView
+                android:id="@+id/tvRowTarget"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:maxLines="1"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="9sp"
+                android:autoSizeMaxTextSize="14sp"
+                android:fontFamily="monospace" />
+        </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvRowWind"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="9sp"
-            android:autoSizeMaxTextSize="14sp"
-            android:fontFamily="monospace" />
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Wind"
+                android:textSize="14sp"
+                android:fontFamily="monospace" />
+            <TextView
+                android:id="@+id/tvRowWind"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:maxLines="1"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="9sp"
+                android:autoSizeMaxTextSize="14sp"
+                android:fontFamily="monospace" />
+        </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvRowImpact"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="9sp"
-            android:autoSizeMaxTextSize="14sp"
-            android:fontFamily="monospace" />
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Impact"
+                android:textSize="14sp"
+                android:fontFamily="monospace" />
+            <TextView
+                android:id="@+id/tvRowImpact"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:maxLines="1"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="9sp"
+                android:autoSizeMaxTextSize="14sp"
+                android:fontFamily="monospace" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/tvWarnings"
@@ -107,7 +146,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="Apply measured wind to another profile set…"
+            android:text="Apply wind estimate to other profile"
             android:visibility="gone" />
 
         <!-- Chart takes every remaining pixel -->

@@ -62,6 +62,7 @@ open class BaseActivity : AppCompatActivity() {
             if (selectedItemId != R.id.nav_results) {
                 startActivity(Intent(this, com.rfsat.vtb.results.ResultsActivity::class.java))
                 if (this !is MainActivity) finish()
+                overridePendingTransition(0, 0) // v17.1: no tab-hop animation
             }
         }
         findViewById<android.widget.ImageView>(R.id.ivResults)?.let { iv ->
@@ -74,7 +75,17 @@ open class BaseActivity : AppCompatActivity() {
             }
         }
         val nav = findViewById<BottomNavigationView>(R.id.bottomNav) ?: return
-        nav.selectedItemId = selectedItemId // set BEFORE the listener to avoid a callback loop
+        // v17.1: nav_results is NOT a BottomNavigationView menu item (it's the
+        // separate toolbar icon), so assigning it as selectedItemId was a
+        // no-op — leaving the default first item (Home) lit while the
+        // Corrections screen was active. Deselect the whole group instead.
+        if (nav.menu.findItem(selectedItemId) != null) {
+            nav.selectedItemId = selectedItemId // set BEFORE the listener to avoid a callback loop
+        } else {
+            nav.menu.setGroupCheckable(0, true, false)
+            for (i in 0 until nav.menu.size()) nav.menu.getItem(i).isChecked = false
+            nav.menu.setGroupCheckable(0, true, true)
+        }
         nav.setOnItemSelectedListener { item ->
             if (item.itemId == selectedItemId) return@setOnItemSelectedListener true
             val target = when (item.itemId) {
@@ -89,6 +100,7 @@ open class BaseActivity : AppCompatActivity() {
             if (target == MainActivity::class.java) intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             startActivity(intent)
             if (this !is MainActivity) finish() // keep the back stack flat when hopping tabs
+            overridePendingTransition(0, 0) // v17.1: no tab-hop animation
             false
         }
     }

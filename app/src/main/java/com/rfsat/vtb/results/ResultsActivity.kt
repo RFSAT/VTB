@@ -30,7 +30,7 @@ class ResultsActivity : BaseActivity() {
             binding.tvWindageBig.text = "—"
             binding.tvElevationBig.text = "—"
             binding.tvRowTarget.text =
-                "Target: ${fmt1(UnitsManager.displayDistance(AnalysisSession.targetDistanceYd * 0.9144))} " +
+                "${fmt1(UnitsManager.displayDistance(AnalysisSession.targetDistanceYd * 0.9144))} " +
                 UnitsManager.distanceUnitLabel() + cameraSuffix()
             binding.tvWarnings.visibility = View.VISIBLE
             binding.tvWarnings.text = adjustment.warnings.joinToString("\n") { "\u26A0 $it" }
@@ -56,19 +56,19 @@ class ResultsActivity : BaseActivity() {
         val oU = UnitsManager.offsetUnitLabel()
 
         binding.tvRowTarget.text =
-            "Target: ${fmt1(UnitsManager.displayDistance(AnalysisSession.targetDistanceYd * 0.9144))} $dU" +
+            "${fmt1(UnitsManager.displayDistance(AnalysisSession.targetDistanceYd * 0.9144))} $dU" +
             cameraSuffix()
 
         binding.tvRowWind.text =
-            "Wind: ${fmt1(UnitsManager.displaySpeed(abs(adjustment.estimatedCrosswindMps)))} $sU " +
+            "${fmt1(UnitsManager.displaySpeed(abs(adjustment.estimatedCrosswindMps)))} $sU " +
             (if (adjustment.estimatedCrosswindMps >= 0) "\u2192" else "\u2190") + // →  L-to-R / ← R-to-L
             " · conf ${(adjustment.windConfidence * 100).toInt()}%"
 
         val latM = adjustment.impactOffsetMAtTarget.z
         val vertM = adjustment.impactOffsetMAtTarget.y
         binding.tvRowImpact.text =
-            "Impact: ${fmt1(UnitsManager.displayOffset(abs(latM)))} $oU ${if (latM >= 0) "R" else "L"} · " +
-            "${fmt1(UnitsManager.displayOffset(abs(vertM)))} $oU ${if (vertM >= 0) "high" else "low"}"
+            "${fmt1(UnitsManager.displayOffset(abs(latM)))} $oU ${if (latM >= 0) "R" else "L"} · " +
+            "${fmt1(UnitsManager.displayOffset(abs(vertM)))} $oU ${if (vertM >= 0) "U" else "D"}"
 
         if (adjustment.warnings.isNotEmpty()) {
             binding.tvWarnings.visibility = View.VISIBLE
@@ -76,29 +76,18 @@ class ResultsActivity : BaseActivity() {
                 adjustment.warnings.joinToString("\n") { "\u26A0 $it" }
         }
 
-        // Chart x-axis (v15.0): DISTANCE where it's physical, time otherwise.
-        //  TRACER — each sample is the bullet at a known downrange x, so
-        //    crosswind-vs-distance is the natural (and requested) axis.
-        //  VAPOR — the estimator assigns every drift sample the same
-        //    effective distance (the trail centroid, ~half the range): a
-        //    distance axis would collapse to a vertical line, so the drift
-        //    timeline keeps the time axis there.
+        // Chart x-axis (v17.1): DISTANCE from the rifle, always — per user
+        // request. In vapor mode every drift sample refers to the same
+        // effective distance (the trail centroid, ~half the range), so the
+        // chart honestly shows the estimate spread stacked at that distance;
+        // tracer mode gives a true range-resolved profile. WindChartView
+        // pads a degenerate x-range, so the single-x case renders fine.
         val samples = AnalysisSession.windSamples
-        val distSpreadM =
-            if (samples.isEmpty()) 0.0
-            else samples.maxOf { it.downrangeM } - samples.minOf { it.downrangeM }
-        if (distSpreadM > 1.0) {
-            binding.windChart.setSeries(
-                samples.sortedBy { it.downrangeM }
-                    .map { UnitsManager.displayDistance(it.downrangeM) to UnitsManager.displaySpeed(it.crosswindMps) }
-            )
-            binding.windChart.title = "Crosswind vs. distance ($dU / $sU, +right)"
-        } else {
-            binding.windChart.setSeries(
-                samples.map { it.timeS to UnitsManager.displaySpeed(it.crosswindMps) }
-            )
-            binding.windChart.title = "Crosswind vs. s after shot ($sU, +right)"
-        }
+        binding.windChart.setSeries(
+            samples.sortedBy { it.downrangeM }
+                .map { UnitsManager.displayDistance(it.downrangeM) to UnitsManager.displaySpeed(it.crosswindMps) }
+        )
+        binding.windChart.title = "Crosswind vs. distance ($dU / $sU, +right)"
 
         // v16.0: wind transfer — the measured wind is a property of the air,
         // so it can drive a correction for ANY saved rifle/bullet/scope set.
@@ -156,7 +145,7 @@ class ResultsActivity : BaseActivity() {
     private fun showTransferredAdjustment(set: com.rfsat.vtb.profiles.ProfileSet, targetDistanceM: Double) {
         val adj = AdjustmentCalculator.computeAdjustment(
             set.bullet, set.rifle, set.scope,
-            com.rfsat.vtb.ballistics.Atmosphere(),
+            com.rfsat.vtb.environment.EnvironmentManager.current.atmosphere,
             targetDistanceYd = targetDistanceM / 0.9144,
             windSamples = AnalysisSession.windSamples
         )
