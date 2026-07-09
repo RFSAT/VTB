@@ -164,18 +164,45 @@ class CaptureActivity : BaseActivity() {
     // ---- Range conditions (v17.0) ----
 
     private fun readKestrel() {
-        if (android.os.Build.VERSION.SDK_INT >= 31 &&
-            checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) !=
-            android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), REQ_BT_CONNECT)
+        // v18.0: BLE scan permissions. 12+: BLUETOOTH_SCAN (neverForLocation)
+        // + BLUETOOTH_CONNECT; pre-12: BLE scanning requires fine location.
+        val needed = if (android.os.Build.VERSION.SDK_INT >= 31) arrayOf(
+            android.Manifest.permission.BLUETOOTH_SCAN,
+            android.Manifest.permission.BLUETOOTH_CONNECT
+        ) else arrayOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION
+        )
+        val missing = needed.filter {
+            checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) {
+            requestPermissions(missing.toTypedArray(), REQ_BT_CONNECT)
             return
         }
-        val device = com.rfsat.vtb.environment.KestrelProvider.findPairedKestrel()
-        if (device == null) {
-            Toast.makeText(this, "No paired Kestrel found — pair it in Android Bluetooth settings first.", Toast.LENGTH_LONG).show()
+        // Bonded first (5700 Elite pairs classically); the DROP D3 never
+        // appears in paired devices — it's advertising-only — so fall
+        // through to a short BLE scan.
+        val bonded = com.rfsat.vtb.environment.KestrelProvider.findPairedKestrel()
+        if (bonded != null) {
+            startKestrelRead(bonded)
             return
         }
+        binding.btnKestrel.isEnabled = false
+        binding.tvEnvStatus.text = "Scanning for Kestrel…"
+        com.rfsat.vtb.environment.KestrelProvider.scanForKestrel(this) { device ->
+            if (device == null) {
+                binding.btnKestrel.isEnabled = true
+                binding.tvEnvStatus.text = com.rfsat.vtb.environment.EnvironmentManager.describe()
+                Toast.makeText(this,
+                    "No Kestrel found nearby — make sure it's on and close by. Advertisers seen were logged (Log tab).",
+                    Toast.LENGTH_LONG).show()
+            } else {
+                startKestrelRead(device)
+            }
+        }
+    }
+
+    private fun startKestrelRead(device: android.bluetooth.BluetoothDevice) {
         binding.btnKestrel.isEnabled = false
         binding.tvEnvStatus.text = "Reading Kestrel…"
         com.rfsat.vtb.environment.KestrelProvider.read(this, device) { got ->
@@ -190,7 +217,8 @@ class CaptureActivity : BaseActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_BT_CONNECT &&
-            grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED) readKestrel()
+            grantResults.isNotEmpty() &&
+            grantResults.all { it == android.content.pm.PackageManager.PERMISSION_GRANTED }) readKestrel()
     }
 
     // ---- Capture-field persistence ----
@@ -529,7 +557,7 @@ class CaptureActivity : BaseActivity() {
                     boresightPixelY = boresightYNorm * frameHeightPx
                 )
 
-                val windSamples = if (tracer) {
+                val rawSamples = if (tracer) {
                     com.rfsat.vtb.wind.TracerWindEstimator.estimate(
                         calibration, observations, bullet, atmosphere,
                         zeroDistanceM = activeRifle.zeroDistanceM,
@@ -540,6 +568,17 @@ class CaptureActivity : BaseActivity() {
                     WindEstimator.estimate(
                         calibration, observations, targetDistanceM, settleTimeS = settleS
                     )
+                }
+                // v18.0 (user request): chart index = distance covered by the
+                // bullet at the sample's time, WITH drag decay — 1D speed
+                // decay integral, un-terminated, so it never saturates.
+                // Chart-only: wind magnitudes are untouched.
+                val windSamples = if (rawSamples.isEmpty()) rawSamples else {
+                    val distFn = BallisticsEngine.dragDecayedDistanceFn(
+                        bullet, atmosphere,
+                        maxTS = rawSamples.maxOf { it.timeS } + 0.1
+                    )
+                    rawSamples.map { it.copy(downrangeM = distFn(it.timeS)) }
                 }
                 Logger.i(TAG, "Estimated ${windSamples.size} wind samples " +
                     "(mode=${if (tracer) "TRACER" else "VAPOR"} tof=${"%.2f".format(tofS)}s settle=${"%.2f".format(settleS)}s)")
@@ -558,6 +597,7 @@ class CaptureActivity : BaseActivity() {
                 AnalysisSession.cameraZoom = zoom
                 AnalysisSession.effectiveFovDeg = effectiveFovDeg
                 AnalysisSession.tracerMode = tracer
+                AnalysisSession.muzzleVelocityMps = bullet.muzzleVelocityMps
                 AnalysisSession.persist(this@CaptureActivity)
 
                 withContext(Dispatchers.Main) {

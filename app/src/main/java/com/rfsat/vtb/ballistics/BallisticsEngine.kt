@@ -212,6 +212,43 @@ object BallisticsEngine {
         return a.position.x + (tS - a.timeS) / dt * (b.position.x - a.position.x)
     }
 
+    /**
+     * v18.0: time -> distance mapping for the wind chart, WITH drag decay
+     * but WITHOUT trajectory termination. Integrates the bullet's speed
+     * decay (dv/dt = -k(v)*v, same G1/BC/atmosphere retardation as the
+     * full simulation, dragCalibrationFactor included) as if the bullet
+     * flew on past the target — so late drift samples keep spreading
+     * sub-linearly instead of saturating (the v17.2 clamped variant the
+     * user rejected). Speed is floored at 1 m/s to keep the mapping
+     * strictly monotonic. Returns a lookup closure valid on [0, maxTS].
+     */
+    fun dragDecayedDistanceFn(
+        bullet: BulletProfile,
+        atmosphere: Atmosphere,
+        maxTS: Double
+    ): (Double) -> Double {
+        val dt = 0.001
+        val n = (maxTS / dt).toInt() + 2
+        val xs = DoubleArray(n)
+        var v = bullet.muzzleVelocityMps
+        var x = 0.0
+        for (i in 1 until n) {
+            // Midpoint step on dv/dt = -k(v)*v, dx/dt = v.
+            val a1 = dragDecayRate(bullet, atmosphere, v) * v
+            val vMid = (v - 0.5 * dt * a1).coerceAtLeast(1.0)
+            val a2 = dragDecayRate(bullet, atmosphere, vMid) * vMid
+            x += vMid * dt
+            v = (v - dt * a2).coerceAtLeast(1.0)
+            xs[i] = x
+        }
+        return { t ->
+            val idx = t / dt
+            val i = idx.toInt().coerceIn(0, n - 2)
+            val f = (idx - i).coerceIn(0.0, 1.0)
+            xs[i] + f * (xs[i + 1] - xs[i])
+        }
+    }
+
     fun solveZeroPitch(
         bullet: BulletProfile,
         atmosphere: Atmosphere,

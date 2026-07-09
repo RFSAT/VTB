@@ -63,6 +63,68 @@ object KestrelProvider {
     }
 
     /**
+     * Scans for an ADVERTISING Kestrel (v18.0). The DROP series never
+     * appears in Android's paired-devices list — it's BLE-advertising-only
+     * with no classic bonding (confirmed on the user's D3) — so when no
+     * bonded Kestrel exists we listen for advertisements instead. Every
+     * named advertiser seen is logged, so even a miss identifies the D3's
+     * actual advertised name for an exact filter later. Calls [onResult]
+     * on the main thread with the device, or null on timeout/failure.
+     */
+    @SuppressLint("MissingPermission") // caller checks BLUETOOTH_SCAN / location
+    fun scanForKestrel(context: Context, timeoutMs: Long = 10_000L, onResult: (BluetoothDevice?) -> Unit) {
+        val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager
+        val scanner = manager?.adapter?.bluetoothLeScanner
+        if (scanner == null) {
+            Logger.e(TAG, "BLE scanner unavailable (Bluetooth off?)")
+            onResult(null); return
+        }
+        val handler = Handler(Looper.getMainLooper())
+        var done = false
+        val seenNames = mutableSetOf<String>()
+
+        val cb = object : android.bluetooth.le.ScanCallback() {
+            override fun onScanResult(callbackType: Int, result: android.bluetooth.le.ScanResult) {
+                val name = result.device.name ?: result.scanRecord?.deviceName ?: return
+                if (seenNames.add(name)) Logger.i(TAG, "BLE advertiser: \"$name\" rssi=${result.rssi}")
+                if (name.contains("kestrel", ignoreCase = true) ||
+                    name.contains("drop", ignoreCase = true)
+                ) {
+                    if (done) return
+                    done = true
+                    runCatching { scanner.stopScan(this) }
+                    Logger.i(TAG, "Kestrel found by scan: \"$name\"")
+                    handler.post { onResult(result.device) }
+                }
+            }
+
+            override fun onScanFailed(errorCode: Int) {
+                if (done) return
+                done = true
+                Logger.e(TAG, "BLE scan failed: code $errorCode")
+                handler.post { onResult(null) }
+            }
+        }
+
+        Logger.i(TAG, "Starting BLE scan for Kestrel (${timeoutMs / 1000}s)")
+        scanner.startScan(
+            null,
+            android.bluetooth.le.ScanSettings.Builder()
+                .setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build(),
+            cb
+        )
+        handler.postDelayed({
+            if (!done) {
+                done = true
+                runCatching { scanner.stopScan(cb) }
+                Logger.i(TAG, "BLE scan timeout — named advertisers seen: $seenNames")
+                onResult(null)
+            }
+        }, timeoutMs)
+    }
+
+    /**
      * Connect, discover, log everything, best-effort read. Calls [onDone]
      * on the main thread with true if at least one environmental value was
      * obtained (already pushed into [EnvironmentManager]).

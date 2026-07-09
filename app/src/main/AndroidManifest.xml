@@ -8,6 +8,14 @@
     <!-- v17.0 Kestrel link: bonded-device BLE connect only (no scanning),
          so no location permission is required. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- v18.0: DROP D3 is BLE-advertising-only (never appears in paired
+         devices), so a short scan is required. neverForLocation: we only
+         look for the Kestrel, so no location permission on Android 12+;
+         pre-12 BLE scanning legally requires fine location. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
 
     <application

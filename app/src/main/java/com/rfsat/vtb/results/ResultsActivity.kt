@@ -76,15 +76,25 @@ class ResultsActivity : BaseActivity() {
                 adjustment.warnings.joinToString("\n") { "\u26A0 $it" }
         }
 
-        // Chart x-axis (v17.4): reverted to TIME after shot, per user —
-        // the drift timeline is the honest axis for vapor samples, and
-        // tracer samples' in-flight times are equally physical.
-        val samples = AnalysisSession.windSamples
-        binding.windChart.setSeries(
-            samples.sortedBy { it.timeS }
-                .map { it.timeS to UnitsManager.displaySpeed(it.crosswindMps) }
-        )
-        binding.windChart.title = "Crosswind vs. s after shot ($sU, +right)"
+        // Chart x-axis (v18.0, per user): distance covered by the bullet
+        // at the sample's time INCLUDING drag decay — computed at analysis
+        // time into each sample's downrangeM (un-terminated speed-decay
+        // integral, never saturates). Legacy payloads (vapor pre-18.0)
+        // carry one constant effective distance there, so those fall back
+        // to the v17.5 nominal-MV linear mapping.
+        val samples = AnalysisSession.windSamples.sortedBy { it.timeS }
+        val spreadM =
+            if (samples.isEmpty()) 0.0
+            else samples.maxOf { it.downrangeM } - samples.minOf { it.downrangeM }
+        val points = if (spreadM > 1.0) {
+            samples.map { UnitsManager.displayDistance(it.downrangeM) to UnitsManager.displaySpeed(it.crosswindMps) }
+        } else {
+            val mvMps = AnalysisSession.muzzleVelocityMps.takeIf { it > 0.0 }
+                ?: com.rfsat.vtb.profiles.ProfileRepository(this).getBullet().muzzleVelocityMps
+            samples.map { UnitsManager.displayDistance(it.timeS * mvMps) to UnitsManager.displaySpeed(it.crosswindMps) }
+        }
+        binding.windChart.setSeries(points)
+        binding.windChart.title = "Crosswind vs. distance ($dU / $sU, +right)"
 
         // v16.0: wind transfer — the measured wind is a property of the air,
         // so it can drive a correction for ANY saved rifle/bullet/scope set.

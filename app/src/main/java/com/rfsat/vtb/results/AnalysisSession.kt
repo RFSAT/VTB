@@ -27,6 +27,12 @@ object AnalysisSession {
     var effectiveFovDeg: Double = 0.0
     /** true when this analysis tracked a tracer round (v14.0). */
     var tracerMode: Boolean = false
+    /** Nominal (specification) muzzle velocity of the bullet this analysis
+     *  used, m/s (v17.5) — the chart maps its time axis to distance as
+     *  t x this value. Recorded per analysis so switching the active
+     *  profile later can't silently rescale a stored chart. 0 = payload
+     *  from an older version (Results falls back to the active profile). */
+    var muzzleVelocityMps: Double = 0.0
 
     /** Everything the Results screen needs, in one Gson-friendly bundle. */
     private data class Payload(
@@ -36,13 +42,14 @@ object AnalysisSession {
         val baseFovDeg: Double = 0.0,
         val cameraZoom: Double = 0.0,
         val effectiveFovDeg: Double = 0.0,
-        val tracerMode: Boolean = false
+        val tracerMode: Boolean = false,
+        val muzzleVelocityMps: Double = 0.0
     )
 
     /** Call after a successful analysis to survive app restarts. */
     fun persist(context: Context) {
         val adj = adjustment ?: return
-        val json = gson.toJson(Payload(windSamples, adj, targetDistanceYd, baseFovDeg, cameraZoom, effectiveFovDeg, tracerMode))
+        val json = gson.toJson(Payload(windSamples, adj, targetDistanceYd, baseFovDeg, cameraZoom, effectiveFovDeg, tracerMode, muzzleVelocityMps))
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(KEY, json).apply()
     }
@@ -84,6 +91,7 @@ object AnalysisSession {
             cameraZoom = it.cameraZoom
             effectiveFovDeg = it.effectiveFovDeg
             tracerMode = it.tracerMode
+            muzzleVelocityMps = it.muzzleVelocityMps
         }
     }
 }
