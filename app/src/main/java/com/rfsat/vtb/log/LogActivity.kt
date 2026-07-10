@@ -36,7 +36,7 @@ class LogActivity : BaseActivity() {
         Logger.addListener(listener)
 
         binding.btnSaveLog.setOnClickListener { saveLogToFile()?.let {
-            Toast.makeText(this, "Saved: ${it.name}", Toast.LENGTH_SHORT).show()
+            notifyUser("Saved: ${it.name}")
         } }
         binding.btnShareLog.setOnClickListener { shareLog() }
         binding.btnClearLog.setOnClickListener { Logger.clear() }
@@ -84,7 +84,7 @@ class LogActivity : BaseActivity() {
 
     private fun shareLog() {
         val file = saveLogToFile() ?: run {
-            Toast.makeText(this, "Could not save log for sharing.", Toast.LENGTH_SHORT).show()
+            notifyUser("Could not save log for sharing.")
             return
         }
         val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
