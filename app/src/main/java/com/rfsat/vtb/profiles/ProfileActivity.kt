@@ -137,7 +137,7 @@ class ProfileActivity : BaseActivity() {
                 saveFromFields()
                 repo.saveSet(ProfileSet(name, repo.getRifle(), repo.getBullet(), repo.getScope()))
                 refreshSetSpinner()
-                android.widget.notifyUser("Saved set \"$name\".")
+                notifyUser("Saved set \"$name\".")
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -151,7 +151,7 @@ class ProfileActivity : BaseActivity() {
 
     private fun loadSelectedSet() {
         val set = selectedSet() ?: run {
-            android.widget.notifyUser("No saved sets yet — use \"Save as set\" first.")
+            notifyUser("No saved sets yet — use \"Save as set\" first.")
             return
         }
         repo.saveRifle(set.rifle)
@@ -159,7 +159,7 @@ class ProfileActivity : BaseActivity() {
         repo.saveScope(set.scope)
         loadIntoFields()
         refreshDropReadouts()
-        android.widget.notifyUser("Loaded set \"${set.name}\" as active.")
+        notifyUser("Loaded set \"${set.name}\" as active.")
     }
 
     private fun deleteSelectedSet() {
@@ -194,11 +194,11 @@ class ProfileActivity : BaseActivity() {
         val dropM = binding.etTableDrop.text.toString().toDoubleOrNull()
             ?.let { it * if (um.isImperial()) 0.0254 else 0.01 }
         if (tableZeroM == null || rangeM == null || dropM == null) {
-            android.widget.notifyUser("Fill table zero, range and official drop first.")
+            notifyUser("Fill table zero, range and official drop first.")
             return
         }
         if (rangeM <= tableZeroM + 1.0) {
-            android.widget.notifyUser("Reference range must be beyond the table zero (drop is 0 at the zero).")
+            notifyUser("Reference range must be beyond the table zero (drop is 0 at the zero).")
             return
         }
         // Calibrate against what's TYPED (MV, BC), not what was last saved.
@@ -222,11 +222,11 @@ class ProfileActivity : BaseActivity() {
         var lo = 0.2; var hi = 5.0
         val dLo = dropAt(lo); val dHi = dropAt(hi)
         if (dLo == null || dLo > dropM) {
-            android.widget.notifyUser("Official drop is below what the model can reach even at minimal drag — check muzzle velocity, BC and units.")
+            notifyUser("Official drop is below what the model can reach even at minimal drag — check muzzle velocity, BC and units.")
             return
         }
         if (dHi != null && dHi < dropM) {
-            android.widget.notifyUser("Official drop exceeds the model even at maximal drag — check muzzle velocity, BC and units.")
+            notifyUser("Official drop exceeds the model even at maximal drag — check muzzle velocity, BC and units.")
             return
         }
         repeat(48) {
@@ -239,7 +239,7 @@ class ProfileActivity : BaseActivity() {
         com.rfsat.vtb.log.Logger.i("ProfileActivity",
             "Drag calibrated from official drop: k=${"%.3f".format(k)} " +
             "(tableZero=${"%.0f".format(tableZeroM)}m range=${"%.0f".format(rangeM)}m drop=${"%.3f".format(dropM)}m)")
-        android.widget.notifyUser("Drag calibration factor set to ${"%.3f".format(k)}.")
+        notifyUser("Drag calibration factor set to ${"%.3f".format(k)}.")
         refreshDropReadouts()
     }
 

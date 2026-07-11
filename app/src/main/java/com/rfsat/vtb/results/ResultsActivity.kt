@@ -232,7 +232,7 @@ class ResultsActivity : BaseActivity() {
         val repo = com.rfsat.vtb.profiles.ProfileRepository(this)
         val sets = repo.getSets()
         if (sets.isEmpty()) {
-            android.widget.notifyUser("No saved profile sets — create them in Profiles (\"Save as set\").")
+            notifyUser("No saved profile sets — create them in Profiles (\"Save as set\").")
             return
         }
         val um = UnitsManager
