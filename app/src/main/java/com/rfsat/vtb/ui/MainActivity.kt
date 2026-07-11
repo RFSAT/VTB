@@ -122,6 +122,6 @@ class MainActivity : BaseActivity() {
         binding.tvSummary.text = getString(
             com.rfsat.vtb.R.string.active_profile_summary,
             rifle.name, bullet.name, scope.name
-        )
+        ) + "\nVTB ${com.rfsat.vtb.BuildConfig.VERSION_NAME} (build ${com.rfsat.vtb.BuildConfig.VERSION_CODE}, ${com.rfsat.vtb.BuildConfig.BUILD_TYPE})"
     }
 }

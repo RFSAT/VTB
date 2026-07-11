@@ -11,11 +11,21 @@ android {
         applicationId = "com.rfsat.vtb"
         minSdk = 26
         targetSdk = 34
-        versionCode = 42
-        versionName = "19.3"
+        versionCode = 44
+        versionName = "19.5"
     }
 
     signingConfigs {
+        // v19.4: committed debug keystore — CI runners otherwise mint a
+        // fresh debug key per run, so consecutive DEBUG artifacts couldn't
+        // install over each other. (User installs RELEASE, signed from
+        // secrets — unaffected; kept for anyone testing debug builds.)
+        getByName("debug") {
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         create("release") {
             val ksPath = System.getenv("ANDROID_KEYSTORE_PATH")
             if (ksPath != null) {
