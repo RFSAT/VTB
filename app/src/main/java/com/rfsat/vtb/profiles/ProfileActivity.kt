@@ -57,14 +57,59 @@ class ProfileActivity : BaseActivity() {
         // Underline section titles for visibility (no XML attribute for
         // underline; paint flags are the standard way).
         listOf(binding.tvHeaderRifle, binding.tvHeaderBullet, binding.tvHeaderScope,
-               binding.tvHeaderDropCal, binding.tvHeaderSets).forEach {
+               binding.tvHeaderDropCal, binding.tvHeaderWindCal, binding.tvHeaderSets).forEach {
             it.paintFlags = it.paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
         }
+
+        binding.tvTrueWindLabel.text = "Measured wind (${com.rfsat.vtb.ui.UnitsManager.speedUnitLabel()})"
+        binding.btnSolveWindScale.setOnClickListener { solveWindScale() }
+        refreshWindScale()
 
         binding.btnSaveSet.setOnClickListener { promptSaveSet() }
         binding.btnLoadSet.setOnClickListener { loadSelectedSet() }
         binding.btnDeleteSet.setOnClickListener { deleteSelectedSet() }
         refreshSetSpinner()
+    }
+
+    // ---- Wind calibration (v19.0) ----
+
+    private fun refreshWindScale() {
+        val scale = getSharedPreferences("vtb_wind_cal", MODE_PRIVATE).getFloat("scale", 1.0f)
+        binding.tvWindScale.text = "Wind scale factor: %.2f%s".format(
+            scale, if (scale == 1.0f) " (uncalibrated)" else "")
+    }
+
+    /**
+     * Solves the vapor estimator's effective-distance scale from ONE
+     * reference: enter the true crosswind (Kestrel-measured) that was
+     * blowing during the LAST analysis, and since the estimate is linear
+     * in the assumed centroid distance, newScale = oldScale x true/est.
+     */
+    private fun solveWindScale() {
+        val um = com.rfsat.vtb.ui.UnitsManager
+        val input = binding.etTrueWind.text.toString().toDoubleOrNull()
+        if (input == null || input <= 0.0) {
+            notifyUser("Enter the wind speed the Kestrel measured during the last analyzed shot.")
+            return
+        }
+        val trueMps = if (um.isImperial()) input * 0.44704 else input
+        com.rfsat.vtb.results.AnalysisSession.restore(this)
+        val estMps = kotlin.math.abs(
+            com.rfsat.vtb.results.AnalysisSession.adjustment?.estimatedCrosswindMps ?: 0.0
+        )
+        if (estMps < 0.1) {
+            notifyUser("Last analysis has no usable wind estimate to calibrate against.")
+            return
+        }
+        val prefs = getSharedPreferences("vtb_wind_cal", MODE_PRIVATE)
+        val old = prefs.getFloat("scale", 1.0f)
+        val solved = (old * trueMps / estMps).toFloat().coerceIn(0.2f, 5.0f)
+        prefs.edit().putFloat("scale", solved).apply()
+        com.rfsat.vtb.log.Logger.i("ProfileActivity",
+            "Wind scale calibrated: true=%.2f m/s est=%.2f m/s -> scale %.2f (was %.2f)"
+                .format(trueMps, estMps, solved, old))
+        refreshWindScale()
+        notifyUser("Wind scale set to %.2f — applies to the next analysis.".format(solved))
     }
 
     // ---- Profile sets (v16.0) ----

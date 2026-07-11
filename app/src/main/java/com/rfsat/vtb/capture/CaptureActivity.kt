@@ -100,7 +100,7 @@ class CaptureActivity : BaseActivity() {
             pendingReferenceBitmap = null // imported clips use TrailExtractor's internal reference-frame lookup
             binding.btnAnalyze.isEnabled = true
             Logger.i(TAG, "Imported video: $uri")
-            notifyUser("Video imported — ready to analyze.")
+            notifyUser("Video imported — ready to analyze. Note: clips recorded with stabilization ON can bias wind estimates.")
         }
     }
 
@@ -159,6 +159,48 @@ class CaptureActivity : BaseActivity() {
         shotDetector?.stop()
         autoStopJob?.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * v19.0 accuracy/performance camera setup:
+     *  - STABILIZATION OFF (EIS + OIS). Stabilization rotates and crops
+     *    frames to cancel handshake — motion the extractor reads as trail
+     *    drift. On a scope-clamped phone it removes signal, not shake, and
+     *    is a prime suspect for artefact winds.
+     *  - 60 fps when the sensor supports it: doubles the tracer
+     *    estimator's in-flight sample count.
+     * Best-effort: any failure leaves the default pipeline untouched.
+     */
+    @androidx.annotation.OptIn(androidx.camera.camera2.interop.ExperimentalCamera2Interop::class)
+    private fun configureCaptureForAnalysis(camera: androidx.camera.core.Camera) {
+        try {
+            val info = androidx.camera.camera2.interop.Camera2CameraInfo.from(camera.cameraInfo)
+            val ranges = info.getCameraCharacteristic(
+                android.hardware.camera2.CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES
+            )
+            val supports60 = ranges?.any { it.lower == 60 && it.upper == 60 } == true
+            val opts = androidx.camera.camera2.interop.CaptureRequestOptions.Builder()
+                .setCaptureRequestOption(
+                    android.hardware.camera2.CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                    android.hardware.camera2.CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF
+                )
+                .setCaptureRequestOption(
+                    android.hardware.camera2.CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
+                    android.hardware.camera2.CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF
+                )
+                .apply {
+                    if (supports60) setCaptureRequestOption(
+                        android.hardware.camera2.CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                        android.util.Range(60, 60)
+                    )
+                }
+                .build()
+            androidx.camera.camera2.interop.Camera2CameraControl.from(camera.cameraControl)
+                .setCaptureRequestOptions(opts)
+            Logger.i(TAG, "Capture configured: stabilization OFF, 60fps=${supports60}")
+        } catch (t: Throwable) {
+            Logger.w(TAG, "Capture tuning unavailable: ${t.message}")
+        }
     }
 
     // ---- Range conditions (v17.0) ----
@@ -265,6 +307,7 @@ class CaptureActivity : BaseActivity() {
         repo.saveRifle(rifle)
     }
 
+    @androidx.annotation.OptIn(androidx.camera.camera2.interop.ExperimentalCamera2Interop::class)
     private fun startCamera() {
         val providerFuture = ProcessCameraProvider.getInstance(this)
         providerFuture.addListener({
@@ -272,12 +315,25 @@ class CaptureActivity : BaseActivity() {
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(binding.previewView.surfaceProvider)
             }
-            val recorder = Recorder.Builder().build()
+            // v19.0: FHD preferred — high-frame-rate modes live at FHD, and
+            // 640 px analysis gains nothing from 4K frames that cost 4x the
+            // decode time.
+            val recorder = Recorder.Builder()
+                .setQualitySelector(
+                    androidx.camera.video.QualitySelector.from(
+                        androidx.camera.video.Quality.FHD,
+                        androidx.camera.video.FallbackStrategy.higherQualityOrLowerThan(
+                            androidx.camera.video.Quality.FHD
+                        )
+                    )
+                )
+                .build()
             val capture = VideoCapture.withOutput(recorder)
             videoCapture = capture
 
             provider.unbindAll()
             val camera = provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+            configureCaptureForAnalysis(camera)
             // Auto-FOV: fill the field from the real optics now and whenever
             // the zoom changes (a zoom change invalidates any manual value).
             // The field stays editable for imported clips from other devices.
@@ -561,8 +617,11 @@ class CaptureActivity : BaseActivity() {
                         targetDistanceM = targetDistanceM
                     )
                 } else {
+                    val windScale = getSharedPreferences("vtb_wind_cal", MODE_PRIVATE)
+                        .getFloat("scale", 1.0f).toDouble()
                     WindEstimator.estimate(
-                        calibration, observations, targetDistanceM, settleTimeS = settleS
+                        calibration, observations, targetDistanceM, settleTimeS = settleS,
+                        windScale = windScale
                     )
                 }
                 // v18.0 (user request): chart index = distance covered by the
@@ -595,6 +654,7 @@ class CaptureActivity : BaseActivity() {
                 AnalysisSession.tracerMode = tracer
                 AnalysisSession.muzzleVelocityMps = bullet.muzzleVelocityMps
                 AnalysisSession.persist(this@CaptureActivity)
+                AnalysisSession.appendHistory(this@CaptureActivity)
 
                 withContext(Dispatchers.Main) {
                     setUiBusy(false)

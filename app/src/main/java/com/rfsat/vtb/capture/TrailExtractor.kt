@@ -115,74 +115,54 @@ object TrailExtractor {
             // Gradient maps only matter for the refraction signature.
             val refGrad = if (mode == Mode.VAPOR) gradientMagnitude(refLum, w, h) else DoubleArray(0)
 
-            val results = mutableListOf<PixelObservation>()
-            var lastX = w / 2.0
-            var lastY = h / 2.0
-            val searchRadius = (w.coerceAtMost(h)) / 3
-
-            var tS = shotBreakOffsetS
             val endS = shotBreakOffsetS + clipDurationAfterShotS
+            val scorer = Scorer(mode, threshold, refLum, refRed, refGrad, w, h, shotBreakOffsetS)
+
+            // FAST PATH (v19.0): one sequential MediaCodec pass — ~10x faster
+            // than per-frame seeks, and every native frame in the window
+            // (60/120 fps clips deliver 2-4x more samples than the old
+            // 33 ms grid). Any failure falls back to the legacy path below.
             var framesRead = 0
             var framesFailed = 0
-            while (tS <= endS) {
-                var frame: Bitmap? = null
-                try {
-                    frame = decodeFrame(retriever, tS, w, h)
-                    if (frame != null) {
-                        framesRead++
-                        val lum = luminance(frame)
-                        val red = if (mode == Mode.TRACER) redDominance(frame) else null
-                        val grad = if (mode == Mode.VAPOR) gradientMagnitude(lum, w, h) else DoubleArray(0)
-                        val x0 = (lastX - searchRadius).toInt().coerceIn(1, w - 2)
-                        val x1 = (lastX + searchRadius).toInt().coerceIn(1, w - 2)
-                        val y0 = (lastY - searchRadius).toInt().coerceIn(1, h - 2)
-                        val y1 = (lastY + searchRadius).toInt().coerceIn(1, h - 2)
-
-                        var sumW = 0.0; var sumWx = 0.0; var sumWy = 0.0
-                        for (y in y0..y1) {
-                            val rowOff = y * w
-                            for (x in x0..x1) {
-                                val idx = rowOff + x
-                                val score = if (mode == Mode.TRACER) {
-                                    // Positive brightness rise + red-dominance rise:
-                                    // the burning element, not shadows or smoke.
-                                    (lum[idx] - refLum[idx]).coerceAtLeast(0.0) +
-                                        RED_WEIGHT * (red!![idx] - refRed!![idx]).coerceAtLeast(0.0)
-                                } else {
-                                    abs(lum[idx] - refLum[idx]) +
-                                        GRADIENT_WEIGHT * abs(grad[idx] - refGrad[idx])
-                                }
-                                if (score > threshold) {
-                                    // Squared weighting in tracer mode: the compact
-                                    // saturated point must dominate the centroid over
-                                    // any co-detected smoke haze.
-                                    val wgt = if (mode == Mode.TRACER) score * score else score
-                                    sumW += wgt; sumWx += wgt * x; sumWy += wgt * y
-                                }
-                            }
-                        }
-                        if (sumW > 0) {
-                            val px = sumWx / sumW
-                            val py = sumWy / sumW
-                            lastX = px; lastY = py
-                            val confNorm = if (mode == Mode.TRACER) 255.0 * 255.0 else 500.0
-                            val confidence = (sumW / (confNorm * (x1 - x0 + 1) * (y1 - y0 + 1))).coerceIn(0.0, 1.0)
-                            results.add(PixelObservation(tS - shotBreakOffsetS, px, py, confidence))
-                        }
-                    } else framesFailed++
-                } catch (oom: OutOfMemoryError) {
-                    framesFailed++
-                    Logger.e(TAG, "Out of memory decoding frame at ${tS}s — aborting extraction; try a shorter/lower-resolution clip")
-                    break
-                } catch (t: Throwable) {
-                    framesFailed++
-                    Logger.w(TAG, "Frame decode failed at ${"%.3f".format(tS)}s: ${t.javaClass.simpleName}: ${t.message}")
-                } finally {
-                    frame?.recycle()
-                }
-                tS += sampleIntervalMs / 1000.0
+            val fastOk = FastFrameDecoder.decode(
+                videoPath, shotBreakOffsetS, endS, MAX_DECODE_WIDTH,
+                needRed = (mode == Mode.TRACER)
+            ) { f ->
+                if (f.width == w && f.height == h) {
+                    framesRead++
+                    scorer.accept(f.tS, f.lum, f.red)
+                } else framesFailed++ // dims disagree with the probe — count and skip
             }
-            Logger.i(TAG, "Extraction done: $framesRead frames read, $framesFailed failed, ${results.size} trail points")
+
+            if (!fastOk || framesRead == 0) {
+                Logger.i(TAG, "Falling back to MediaMetadataRetriever path")
+                scorer.reset(); framesRead = 0; framesFailed = 0
+                var tS = shotBreakOffsetS
+                while (tS <= endS) {
+                    var frame: Bitmap? = null
+                    try {
+                        frame = decodeFrame(retriever, tS, w, h)
+                        if (frame != null) {
+                            framesRead++
+                            val lum = luminance(frame)
+                            val red = if (mode == Mode.TRACER) redDominance(frame) else null
+                            scorer.accept(tS, lum, red)
+                        } else framesFailed++
+                    } catch (oom: OutOfMemoryError) {
+                        framesFailed++
+                        Logger.e(TAG, "Out of memory decoding frame at ${tS}s — aborting extraction; try a shorter/lower-resolution clip")
+                        break
+                    } catch (t: Throwable) {
+                        framesFailed++
+                        Logger.w(TAG, "Frame decode failed at ${"%.3f".format(tS)}s: ${t.javaClass.simpleName}: ${t.message}")
+                    } finally {
+                        frame?.recycle()
+                    }
+                    tS += sampleIntervalMs / 1000.0
+                }
+            }
+            val results = scorer.results
+            Logger.i(TAG, "Extraction done: $framesRead frames read, $framesFailed failed, ${results.size} trail points (fast=${fastOk})")
             if (results.isEmpty() && framesRead > 0) {
                 Logger.w(TAG, "Frames decoded fine but nothing exceeded score threshold $threshold — trail too faint, wrong shot-break time, or camera moved between reference and shot")
             }
@@ -196,6 +176,70 @@ object TrailExtractor {
         } finally {
             scaledExternalReference?.recycle()
             try { retriever.release() } catch (_: Throwable) {}
+        }
+    }
+
+    /**
+     * Per-frame scoring + centroid tracking, shared by the fast sequential
+     * path and the legacy retriever path so the two can never diverge.
+     */
+    private class Scorer(
+        val mode: Mode,
+        val threshold: Double,
+        val refLum: DoubleArray,
+        val refRed: DoubleArray?,
+        val refGrad: DoubleArray,
+        val w: Int,
+        val h: Int,
+        val shotBreakOffsetS: Double
+    ) {
+        val results = mutableListOf<PixelObservation>()
+        private var lastX = w / 2.0
+        private var lastY = h / 2.0
+        private val searchRadius = (w.coerceAtMost(h)) / 3
+
+        fun reset() {
+            results.clear(); lastX = w / 2.0; lastY = h / 2.0
+        }
+
+        fun accept(tS: Double, lum: DoubleArray, red: DoubleArray?) {
+            val grad = if (mode == Mode.VAPOR) gradientMagnitude(lum, w, h) else DoubleArray(0)
+            val x0 = (lastX - searchRadius).toInt().coerceIn(1, w - 2)
+            val x1 = (lastX + searchRadius).toInt().coerceIn(1, w - 2)
+            val y0 = (lastY - searchRadius).toInt().coerceIn(1, h - 2)
+            val y1 = (lastY + searchRadius).toInt().coerceIn(1, h - 2)
+
+            var sumW = 0.0; var sumWx = 0.0; var sumWy = 0.0
+            for (y in y0..y1) {
+                val rowOff = y * w
+                for (x in x0..x1) {
+                    val idx = rowOff + x
+                    val score = if (mode == Mode.TRACER) {
+                        // Positive brightness rise + red-dominance rise:
+                        // the burning element, not shadows or smoke.
+                        (lum[idx] - refLum[idx]).coerceAtLeast(0.0) +
+                            RED_WEIGHT * (red!![idx] - refRed!![idx]).coerceAtLeast(0.0)
+                    } else {
+                        abs(lum[idx] - refLum[idx]) +
+                            GRADIENT_WEIGHT * abs(grad[idx] - refGrad[idx])
+                    }
+                    if (score > threshold) {
+                        // Squared weighting in tracer mode: the compact
+                        // saturated point must dominate the centroid over
+                        // any co-detected smoke haze.
+                        val wgt = if (mode == Mode.TRACER) score * score else score
+                        sumW += wgt; sumWx += wgt * x; sumWy += wgt * y
+                    }
+                }
+            }
+            if (sumW > 0) {
+                val px = sumWx / sumW
+                val py = sumWy / sumW
+                lastX = px; lastY = py
+                val confNorm = if (mode == Mode.TRACER) 255.0 * 255.0 else 500.0
+                val confidence = (sumW / (confNorm * (x1 - x0 + 1) * (y1 - y0 + 1))).coerceIn(0.0, 1.0)
+                results.add(PixelObservation(tS - shotBreakOffsetS, px, py, confidence))
+            }
         }
     }
 

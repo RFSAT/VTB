@@ -24,6 +24,10 @@ data class ScopeAdjustment(
     val estimatedCrosswindMps: Double,     // uniform wind used in the solution, +right
     val estimatedVerticalWindMps: Double,  // +up
     val windConfidence: Double,            // 0..1
+    /** v19.0: sample spread (1 sd) of the trimmed wind estimates — gust/
+     *  noise scatter behind the mean. 0.0 on payloads from older versions. */
+    val crosswindStdMps: Double = 0.0,
+    val verticalWindStdMps: Double = 0.0,
     val impactOffsetMAtTarget: Vec3,  // diagnostic: last shot's landing point vs POA, metres (x unused)
     val warnings: List<String>,       // practicality/sanity flags for the Results screen
     /** false when the simulated trajectory never reached the target — the
@@ -69,10 +73,12 @@ object AdjustmentCalculator {
     ): ScopeAdjustment {
         val warnings = mutableListOf<String>()
 
-        val avg = WindEstimator.averageWind(windSamples)
-        var crossMps = avg?.first ?: 0.0
-        var vertMps = avg?.second ?: 0.0
-        val windConf = avg?.third ?: 0.0
+        val avg = WindEstimator.averageWindStats(windSamples)
+        var crossMps = avg?.crossMps ?: 0.0
+        var vertMps = avg?.vertMps ?: 0.0
+        val windConf = avg?.confidence ?: 0.0
+        val crossSd = avg?.crossSdMps ?: 0.0
+        val vertSd = avg?.vertSdMps ?: 0.0
         if (avg == null) {
             warnings.add("No usable wind estimate from the trail (none, or mostly implausible samples) — this is a zero-wind solution.")
         } else if (abs(crossMps) > MAX_CREDIBLE_WIND_MPS || abs(vertMps) > MAX_CREDIBLE_WIND_MPS) {
@@ -167,6 +173,8 @@ object AdjustmentCalculator {
             estimatedCrosswindMps = crossMps,
             estimatedVerticalWindMps = vertMps,
             windConfidence = windConf,
+            crosswindStdMps = crossSd,
+            verticalWindStdMps = vertSd,
             impactOffsetMAtTarget = Vec3(0.0, verticalMissM, lateralMissM),
             warnings = warnings,
             valid = reachedTarget

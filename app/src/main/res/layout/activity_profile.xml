@@ -104,6 +104,27 @@
             android:layout_marginTop="4dp"
             android:layout_width="wrap_content" android:layout_height="wrap_content"/>
 
+        <!-- Wind calibration (v19.0): the vapor estimator assumes the
+             drifting trail centroid sits at half the range; crosswind
+             scales linearly with that distance. One shot in a wind measured
+             by the Kestrel pins the scale factor empirically. -->
+        <TextView android:id="@+id/tvHeaderWindCal" android:text="Wind calibration — measured reference"
+            android:textStyle="bold" android:textSize="14sp"
+            android:layout_marginTop="12dp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:id="@+id/tvTrueWindLabel" android:text="Measured wind" android:textSize="12sp"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                <EditText android:id="@+id/etTrueWind" android:inputType="numberDecimal"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp"/>
+            </LinearLayout>
+            <Button android:id="@+id/btnSolveWindScale" android:text="Solve from last shot"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        </LinearLayout>
+        <TextView android:id="@+id/tvWindScale" android:textSize="12sp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+
         <!-- Profile sets (v16.0): named rifle+bullet+scope snapshots. Wind
              measured with one set can be re-applied on the Results screen
              to compute corrections for another. -->

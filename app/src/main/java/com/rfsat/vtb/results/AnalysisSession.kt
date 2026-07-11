@@ -76,6 +76,53 @@ object AnalysisSession {
         return if (migrated == adj.warnings) adj else adj.copy(warnings = migrated)
     }
 
+    /** One line of the shot history (v19.0) — the compact per-analysis
+     *  record kept alongside the full last-analysis payload. */
+    data class HistoryEntry(
+        val timestampMs: Long,
+        val targetDistanceYd: Double,
+        val crosswindMps: Double,
+        val verticalWindMps: Double,
+        val confidence: Double,
+        val windageClicks: Int,
+        val windageDirection: String,
+        val elevationClicks: Int,
+        val elevationDirection: String,
+        val tracer: Boolean = false
+    )
+
+    private const val HISTORY_KEY = "history"
+    private const val HISTORY_CAP = 50
+
+    fun appendHistory(context: Context) {
+        val adj = adjustment ?: return
+        if (!adj.valid) return
+        val entry = HistoryEntry(
+            System.currentTimeMillis(), targetDistanceYd,
+            adj.estimatedCrosswindMps, adj.estimatedVerticalWindMps, adj.windConfidence,
+            adj.windageClicks, adj.windageDirection, adj.elevationClicks, adj.elevationDirection,
+            tracerMode
+        )
+        val list = (history(context) + entry).takeLast(HISTORY_CAP)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(HISTORY_KEY, gson.toJson(list)).apply()
+    }
+
+    fun history(context: Context): List<HistoryEntry> {
+        val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(HISTORY_KEY, null) ?: return emptyList()
+        return runCatching {
+            gson.fromJson<List<HistoryEntry>>(
+                json,
+                com.google.gson.reflect.TypeToken.getParameterized(List::class.java, HistoryEntry::class.java).type
+            )
+        }.getOrNull() ?: emptyList()
+    }
+
+    fun clearHistory(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(HISTORY_KEY).apply()
+    }
+
     /** Call once at app start; no-op if nothing stored or already loaded. */
     fun restore(context: Context) {
         if (adjustment != null) return

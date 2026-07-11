@@ -76,14 +76,19 @@ object WindEstimator {
         targetDistanceM: Double,
         settleTimeS: Double,
         minConfidence: Double = 0.02,
-        timeToDownrangeM: ((Double) -> Double)? = null
+        timeToDownrangeM: ((Double) -> Double)? = null,
+        /** v19.0: calibration multiplier on the effective trail-centroid
+         *  distance (default 1.0). The crosswind scales linearly with that
+         *  assumed distance, so one shot in a Kestrel-measured wind pins it
+         *  empirically — solved in Profiles > Wind calibration. */
+        windScale: Double = 1.0
     ): List<WindSample> {
         val obs = observations
             .filter { it.confidence >= minConfidence && it.timestampS >= settleTimeS }
             .sortedBy { it.timestampS }
         if (obs.size < MIN_POINTS) return emptyList()
 
-        val dEff = targetDistanceM * EFFECTIVE_DISTANCE_FRACTION
+        val dEff = targetDistanceM * EFFECTIVE_DISTANCE_FRACTION * windScale
         val t = DoubleArray(obs.size) { obs[it].timestampS }
         val ax = DoubleArray(obs.size) { calibration.pixelAngleX(obs[it].pixelX) }
         val ay = DoubleArray(obs.size) { calibration.pixelAngleY(obs[it].pixelY) }
@@ -164,6 +169,32 @@ object WindEstimator {
      *  coherent vapor trail on video, happens beyond that. Samples above it
      *  are tracking artefacts and must not drag the average. */
     const val MAX_PLAUSIBLE_SAMPLE_MPS = 15.0
+
+    /** Averaged wind with spread (v19.0): means, mean confidence, and the
+     *  sample standard deviations of the trimmed set — the honest gust/noise
+     *  spread behind the single number. */
+    data class WindStats(
+        val crossMps: Double,
+        val vertMps: Double,
+        val confidence: Double,
+        val crossSdMps: Double,
+        val vertSdMps: Double
+    )
+
+    fun averageWindStats(samples: List<WindSample>): WindStats? {
+        val avg = averageWind(samples) ?: return null
+        // Recompute the spread on the plausibility-trimmed set.
+        val plausible = samples.filter {
+            abs(it.crosswindMps) <= MAX_PLAUSIBLE_SAMPLE_MPS &&
+            abs(it.verticalWindMps) <= MAX_PLAUSIBLE_SAMPLE_MPS
+        }
+        fun sd(f: (WindSample) -> Double, mean: Double): Double {
+            if (plausible.size < 2) return 0.0
+            return kotlin.math.sqrt(plausible.sumOf { val d = f(it) - mean; d * d } / plausible.size)
+        }
+        return WindStats(avg.first, avg.second, avg.third,
+            sd({ it.crosswindMps }, avg.first), sd({ it.verticalWindMps }, avg.second))
+    }
 
     fun averageWind(samples: List<WindSample>): Triple<Double, Double, Double>? {
         val plausible = samples.filter {
