@@ -85,7 +85,7 @@ class CaptureActivity : BaseActivity() {
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
         if (results[Manifest.permission.CAMERA] == true) startCamera() else {
-            notifyUser("Camera permission is required to capture the trail.")
+            Toast.makeText(this, "Camera permission is required to capture the trail.", Toast.LENGTH_LONG).show()
             finish()
         }
         audioPermissionGranted = results[Manifest.permission.RECORD_AUDIO] == true
@@ -100,7 +100,7 @@ class CaptureActivity : BaseActivity() {
             pendingReferenceBitmap = null // imported clips use TrailExtractor's internal reference-frame lookup
             binding.btnAnalyze.isEnabled = true
             Logger.i(TAG, "Imported video: $uri")
-            notifyUser("Video imported — ready to analyze.")
+            Toast.makeText(this, "Video imported — ready to analyze.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -193,7 +193,9 @@ class CaptureActivity : BaseActivity() {
             if (device == null) {
                 binding.btnKestrel.isEnabled = true
                 binding.tvEnvStatus.text = com.rfsat.vtb.environment.EnvironmentManager.describe()
-                notifyUser("No Kestrel found nearby — make sure it's on and close by. Advertisers seen were logged (Log tab).")
+                Toast.makeText(this,
+                    "No Kestrel found nearby — make sure it's on and close by. Advertisers seen were logged (Log tab).",
+                    Toast.LENGTH_LONG).show()
             } else {
                 startKestrelRead(device)
             }
@@ -206,7 +208,9 @@ class CaptureActivity : BaseActivity() {
         com.rfsat.vtb.environment.KestrelProvider.read(this, device) { got ->
             binding.btnKestrel.isEnabled = true
             binding.tvEnvStatus.text = com.rfsat.vtb.environment.EnvironmentManager.describe()
-            if (!got) notifyUser("Kestrel connected but no readable environment values — its GATT layout was logged (Log tab) for exact wiring.")
+            if (!got) Toast.makeText(this,
+                "Kestrel connected but no readable environment values — its GATT layout was logged (Log tab) for exact wiring.",
+                Toast.LENGTH_LONG).show()
         }
     }
 
@@ -351,17 +355,17 @@ class CaptureActivity : BaseActivity() {
     private fun toggleArm() {
         if (isArmed) { disarm(); return }
         if (!audioPermissionGranted) {
-            notifyUser("Microphone permission is required for auto-trigger.")
+            Toast.makeText(this, "Microphone permission is required for auto-trigger.", Toast.LENGTH_LONG).show()
             permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
             return
         }
         if (videoCapture == null) {
-            notifyUser("Camera isn't ready yet.")
+            Toast.makeText(this, "Camera isn't ready yet.", Toast.LENGTH_SHORT).show()
             return
         }
         val previewBitmap = binding.previewView.bitmap
         if (previewBitmap == null) {
-            notifyUser("Preview isn't ready yet — try again in a moment.")
+            Toast.makeText(this, "Preview isn't ready yet — try again in a moment.", Toast.LENGTH_SHORT).show()
             return
         }
         pendingReferenceBitmap = previewBitmap
@@ -440,7 +444,7 @@ class CaptureActivity : BaseActivity() {
     private fun runAnalysis() {
         val uri = pendingUri
         if (uri == null) {
-            notifyUser("No video available yet — record or import one first.")
+            Toast.makeText(this, "No video available yet — record or import one first.", Toast.LENGTH_SHORT).show()
             return
         }
         val shotBreakOffsetS = binding.etShotBreakSeconds.text.toString().toDoubleOrNull() ?: 0.5
@@ -450,7 +454,7 @@ class CaptureActivity : BaseActivity() {
         // (e.g. a distance typed into the wrong field) poison every result.
         if (fovDeg !in 10.0..120.0) {
             Logger.e(TAG, "Rejected analysis: FOV $fovDeg deg outside 10-120")
-            notifyUser("Camera FOV must be 10–120° (got ${"%.0f".format(fovDeg)}°).")
+            Toast.makeText(this, "Camera FOV must be 10–120° (got ${"%.0f".format(fovDeg)}°).", Toast.LENGTH_LONG).show()
             return
         }
         // Zoom the clip was RECORDED at. Auto-filled from the live camera;
@@ -460,7 +464,7 @@ class CaptureActivity : BaseActivity() {
         val zoom = binding.etZoom.text.toString().toDoubleOrNull() ?: 1.0
         if (zoom !in 0.5..50.0) {
             Logger.e(TAG, "Rejected analysis: zoom ${zoom}x outside 0.5-50")
-            notifyUser("Zoom must be 0.5–50× (got ${"%.1f".format(zoom)}×).")
+            Toast.makeText(this, "Zoom must be 0.5–50× (got ${"%.1f".format(zoom)}×).", Toast.LENGTH_LONG).show()
             return
         }
         // Effective FOV: the angular width actually recorded. Correct optics,
@@ -492,7 +496,7 @@ class CaptureActivity : BaseActivity() {
                 if (localFile == null) {
                     withContext(Dispatchers.Main) {
                         setUiBusy(false)
-                        notifyUser("Could not read the video file — see Log.")
+                        Toast.makeText(this@CaptureActivity, "Could not read the video file — see Log.", Toast.LENGTH_LONG).show()
                     }
                     return@launch
                 }
@@ -531,7 +535,7 @@ class CaptureActivity : BaseActivity() {
                 if (observations.isEmpty()) {
                     withContext(Dispatchers.Main) {
                         setUiBusy(false)
-                        notifyUser("No trail detected — check lighting/contrast and try again.")
+                        Toast.makeText(this@CaptureActivity, "No trail detected — check lighting/contrast and try again.", Toast.LENGTH_LONG).show()
                     }
                     return@launch
                 }
@@ -604,7 +608,7 @@ class CaptureActivity : BaseActivity() {
                 Logger.e(TAG, "Analysis failed", t)
                 withContext(Dispatchers.Main) {
                     setUiBusy(false)
-                    notifyUser("Analysis failed: ${t.message}. See the Log tab for details.")
+                    Toast.makeText(this@CaptureActivity, "Analysis failed: ${t.message}. See the Log tab for details.", Toast.LENGTH_LONG).show()
                 }
             }
         }

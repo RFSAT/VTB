@@ -112,7 +112,9 @@ class ResultsActivity : BaseActivity() {
         val repo = com.rfsat.vtb.profiles.ProfileRepository(this)
         val sets = repo.getSets()
         if (sets.isEmpty()) {
-            notifyUser("No saved profile sets — create them in Profiles (\"Save as set\").")
+            android.widget.Toast.makeText(this,
+                "No saved profile sets — create them in Profiles (\"Save as set\").",
+                android.widget.Toast.LENGTH_LONG).show()
             return
         }
         val um = UnitsManager
@@ -134,7 +136,7 @@ class ResultsActivity : BaseActivity() {
         }
         container.addView(spinner); container.addView(distLabel); container.addView(distInput)
 
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder(this)
             .setTitle("Apply measured wind to…")
             .setView(container)
             .setPositiveButton("Compute") { _, _ ->
@@ -175,7 +177,7 @@ class ResultsActivity : BaseActivity() {
                 "see different air.\n")
             for (w in adj.warnings) msg.append("\u26A0 $w\n")
         }
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder(this)
             .setTitle("Correction for \"${set.name}\"")
             .setMessage(msg.toString().trimEnd())
             .setPositiveButton("Close", null)
