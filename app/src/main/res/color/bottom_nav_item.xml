@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Bottom-nav icon/label tint that actually follows the active display
-     mode: selected = theme accent, unselected = full-strength primary text
-     colour. (The Material default is colorOnSurface at 60% alpha, which is
-     what made unselected items hard to read in the dark/night modes.) -->
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:color="?attr/colorAccent" android:state_checked="true" />
-    <item android:color="?android:attr/textColorPrimary" />
-</selector>

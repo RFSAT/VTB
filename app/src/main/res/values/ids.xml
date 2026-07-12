@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Nav id for the Results toolbar item, which lives OUTSIDE the
-         5-item-capped BottomNavigationView menu (like Exit). -->
-    <item name="nav_results" type="id" />
-</resources>

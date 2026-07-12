@@ -11,30 +11,11 @@ android {
         applicationId = "com.rfsat.vtb"
         minSdk = 26
         targetSdk = 34
-        versionCode = 44
-        versionName = "19.5"
+        versionCode = 37
+        versionName = "18.0"
     }
 
     signingConfigs {
-        // v19.4: committed debug keystore — CI runners otherwise mint a
-        // fresh debug key per run, so consecutive DEBUG artifacts couldn't
-        // install over each other. (User installs RELEASE, signed from
-        // secrets — unaffected; kept for anyone testing debug builds.)
-        getByName("debug") {
-            // Guarded (v19.5-fix1): .gitignore templates commonly exclude
-            // *.keystore, so this file may silently never reach the repo —
-            // a hard reference would then fail EVERY CI build (and a failed
-            // job produces no release artifact either, perpetuating the
-            // stale-APK loop). Missing file -> default per-run debug key,
-            // which is harmless since installs use the release build.
-            val ks = rootProject.file("debug.keystore")
-            if (ks.exists()) {
-                storeFile = ks
-                storePassword = "android"
-                keyAlias = "androiddebugkey"
-                keyPassword = "android"
-            }
-        }
         create("release") {
             val ksPath = System.getenv("ANDROID_KEYSTORE_PATH")
             if (ksPath != null) {

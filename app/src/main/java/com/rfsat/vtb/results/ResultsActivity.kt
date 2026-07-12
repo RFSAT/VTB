@@ -59,12 +59,8 @@ class ResultsActivity : BaseActivity() {
             "${fmt1(UnitsManager.displayDistance(AnalysisSession.targetDistanceYd * 0.9144))} $dU" +
             cameraSuffix()
 
-        // v19.0: show the gust/noise spread behind the mean — "4.2 ± 1.1"
-        // is more honest and more actionable than a bare confidence figure.
-        val sdTxt = if (adjustment.crosswindStdMps > 0.0)
-            " ±${fmt1(UnitsManager.displaySpeed(adjustment.crosswindStdMps))}" else ""
         binding.tvRowWind.text =
-            "${fmt1(UnitsManager.displaySpeed(abs(adjustment.estimatedCrosswindMps)))}$sdTxt $sU " +
+            "${fmt1(UnitsManager.displaySpeed(abs(adjustment.estimatedCrosswindMps)))} $sU " +
             (if (adjustment.estimatedCrosswindMps >= 0) "\u2192" else "\u2190") + // →  L-to-R / ← R-to-L
             " · conf ${(adjustment.windConfidence * 100).toInt()}%"
 
@@ -106,122 +102,6 @@ class ResultsActivity : BaseActivity() {
             binding.btnApplyToSet.visibility = View.VISIBLE
             binding.btnApplyToSet.setOnClickListener { promptWindTransfer() }
         }
-
-        // v19.0 usability row.
-        binding.btnSpeak.text = if (ttsEnabled()) "Speak: on" else "Speak: off"
-        binding.btnSpeak.setOnClickListener { toggleTts() }
-        binding.btnHistory.setOnClickListener { showHistory() }
-        binding.btnExportCsv.setOnClickListener { exportCsv() }
-        maybeSpeakAdjustment()
-    }
-
-    // ---- Spoken corrections (v19.0): eyes stay on the scope, hands on
-    // the rifle — the correction is read out instead of read off. ----
-
-    private var tts: android.speech.tts.TextToSpeech? = null
-    private var ttsReady = false
-
-    private fun ttsEnabled(): Boolean =
-        getSharedPreferences("vtb_tts", MODE_PRIVATE).getBoolean("enabled", false)
-
-    private fun toggleTts() {
-        val now = !ttsEnabled()
-        getSharedPreferences("vtb_tts", MODE_PRIVATE).edit().putBoolean("enabled", now).apply()
-        binding.btnSpeak.text = if (now) "Speak: on" else "Speak: off"
-        if (now) maybeSpeakAdjustment()
-        else tts?.stop()
-    }
-
-    private fun maybeSpeakAdjustment() {
-        if (!ttsEnabled()) return
-        val adj = AnalysisSession.adjustment ?: return
-        if (!adj.valid) return
-        val phrase = buildString {
-            append("${kotlin.math.abs(adj.windageClicks)} clicks ${adj.windageDirection.lowercase()}, ")
-            append("${kotlin.math.abs(adj.elevationClicks)} clicks ${adj.elevationDirection.lowercase()}")
-        }
-        val speak = {
-            tts?.speak(phrase, android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "vtb_adj")
-        }
-        if (ttsReady) { speak(); return }
-        if (tts == null) {
-            tts = android.speech.tts.TextToSpeech(this) { status ->
-                if (status == android.speech.tts.TextToSpeech.SUCCESS) {
-                    tts?.language = java.util.Locale.US
-                    ttsReady = true
-                    runOnUiThread { speak() }
-                }
-            }
-        }
-    }
-
-    override fun onDestroy() {
-        tts?.stop(); tts?.shutdown(); tts = null
-        super.onDestroy()
-    }
-
-    // ---- Shot history (v19.0) ----
-
-    private fun showHistory() {
-        val entries = AnalysisSession.history(this).asReversed()
-        if (entries.isEmpty()) {
-            notifyUser("No shots recorded yet — history fills as analyses complete.")
-            return
-        }
-        val um = UnitsManager
-        val fmtDate = java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.US)
-        val text = entries.joinToString("\n") { e ->
-            val dir = if (e.crosswindMps >= 0) "\u2192" else "\u2190"
-            val tr = if (e.tracer) " T" else ""
-            "%s  %4.0f %s  %4.1f %s %s  %dclk %s / %dclk %s%s".format(
-                fmtDate.format(java.util.Date(e.timestampMs)),
-                um.displayDistance(e.targetDistanceYd * 0.9144), um.distanceUnitLabel(),
-                um.displaySpeed(kotlin.math.abs(e.crosswindMps)), um.speedUnitLabel(), dir,
-                kotlin.math.abs(e.windageClicks), e.windageDirection.take(1),
-                kotlin.math.abs(e.elevationClicks), e.elevationDirection.take(1), tr
-            )
-        }
-        val tv = android.widget.TextView(this).apply {
-            typeface = android.graphics.Typeface.MONOSPACE
-            textSize = 11f
-            setPadding(32, 16, 32, 0)
-            setText(text)
-        }
-        val scroll = android.widget.ScrollView(this).apply { addView(tv) }
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Shot history (newest first)")
-            .setView(scroll)
-            .setPositiveButton("Close", null)
-            .setNeutralButton("Clear") { _, _ ->
-                AnalysisSession.clearHistory(this)
-                notifyUser("Shot history cleared.")
-            }
-            .show()
-    }
-
-    // ---- CSV export (v19.0): wind samples of the current analysis,
-    // shared as text so it lands in email/Drive/Sheets without any
-    // file-provider plumbing. ----
-
-    private fun exportCsv() {
-        val samples = AnalysisSession.windSamples
-        if (samples.isEmpty()) {
-            notifyUser("No analysis data to export.")
-            return
-        }
-        val csv = buildString {
-            append("time_s,downrange_m,crosswind_mps,vertical_mps,confidence\n")
-            for (w in samples) {
-                append("%.3f,%.1f,%.3f,%.3f,%.3f\n".format(
-                    w.timeS, w.downrangeM, w.crosswindMps, w.verticalWindMps, w.confidence))
-            }
-        }
-        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(android.content.Intent.EXTRA_SUBJECT, "VTB wind samples")
-            putExtra(android.content.Intent.EXTRA_TEXT, csv)
-        }
-        startActivity(android.content.Intent.createChooser(intent, "Export wind data"))
     }
 
     /** Pick a saved profile set + engagement distance, recompute the scope
@@ -232,7 +112,9 @@ class ResultsActivity : BaseActivity() {
         val repo = com.rfsat.vtb.profiles.ProfileRepository(this)
         val sets = repo.getSets()
         if (sets.isEmpty()) {
-            notifyUser("No saved profile sets — create them in Profiles (\"Save as set\").")
+            android.widget.Toast.makeText(this,
+                "No saved profile sets — create them in Profiles (\"Save as set\").",
+                android.widget.Toast.LENGTH_LONG).show()
             return
         }
         val um = UnitsManager
@@ -254,7 +136,7 @@ class ResultsActivity : BaseActivity() {
         }
         container.addView(spinner); container.addView(distLabel); container.addView(distInput)
 
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder(this)
             .setTitle("Apply measured wind to…")
             .setView(container)
             .setPositiveButton("Compute") { _, _ ->
@@ -295,7 +177,7 @@ class ResultsActivity : BaseActivity() {
                 "see different air.\n")
             for (w in adj.warnings) msg.append("\u26A0 $w\n")
         }
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder(this)
             .setTitle("Correction for \"${set.name}\"")
             .setMessage(msg.toString().trimEnd())
             .setPositiveButton("Close", null)

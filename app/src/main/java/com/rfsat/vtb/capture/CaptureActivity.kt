@@ -85,7 +85,7 @@ class CaptureActivity : BaseActivity() {
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
         if (results[Manifest.permission.CAMERA] == true) startCamera() else {
-            notifyUser("Camera permission is required to capture the trail.")
+            Toast.makeText(this, "Camera permission is required to capture the trail.", Toast.LENGTH_LONG).show()
             finish()
         }
         audioPermissionGranted = results[Manifest.permission.RECORD_AUDIO] == true
@@ -100,7 +100,7 @@ class CaptureActivity : BaseActivity() {
             pendingReferenceBitmap = null // imported clips use TrailExtractor's internal reference-frame lookup
             binding.btnAnalyze.isEnabled = true
             Logger.i(TAG, "Imported video: $uri")
-            notifyUser("Video imported — ready to analyze. Note: clips recorded with stabilization ON can bias wind estimates.")
+            Toast.makeText(this, "Video imported — ready to analyze.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -161,48 +161,6 @@ class CaptureActivity : BaseActivity() {
         super.onDestroy()
     }
 
-    /**
-     * v19.0 accuracy/performance camera setup:
-     *  - STABILIZATION OFF (EIS + OIS). Stabilization rotates and crops
-     *    frames to cancel handshake — motion the extractor reads as trail
-     *    drift. On a scope-clamped phone it removes signal, not shake, and
-     *    is a prime suspect for artefact winds.
-     *  - 60 fps when the sensor supports it: doubles the tracer
-     *    estimator's in-flight sample count.
-     * Best-effort: any failure leaves the default pipeline untouched.
-     */
-    @androidx.annotation.OptIn(androidx.camera.camera2.interop.ExperimentalCamera2Interop::class)
-    private fun configureCaptureForAnalysis(camera: androidx.camera.core.Camera) {
-        try {
-            val info = androidx.camera.camera2.interop.Camera2CameraInfo.from(camera.cameraInfo)
-            val ranges = info.getCameraCharacteristic(
-                android.hardware.camera2.CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES
-            )
-            val supports60 = ranges?.any { it.lower == 60 && it.upper == 60 } == true
-            val opts = androidx.camera.camera2.interop.CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(
-                    android.hardware.camera2.CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
-                    android.hardware.camera2.CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF
-                )
-                .setCaptureRequestOption(
-                    android.hardware.camera2.CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
-                    android.hardware.camera2.CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF
-                )
-                .apply {
-                    if (supports60) setCaptureRequestOption(
-                        android.hardware.camera2.CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
-                        android.util.Range(60, 60)
-                    )
-                }
-                .build()
-            androidx.camera.camera2.interop.Camera2CameraControl.from(camera.cameraControl)
-                .setCaptureRequestOptions(opts)
-            Logger.i(TAG, "Capture configured: stabilization OFF, 60fps=${supports60}")
-        } catch (t: Throwable) {
-            Logger.w(TAG, "Capture tuning unavailable: ${t.message}")
-        }
-    }
-
     // ---- Range conditions (v17.0) ----
 
     private fun readKestrel() {
@@ -235,7 +193,9 @@ class CaptureActivity : BaseActivity() {
             if (device == null) {
                 binding.btnKestrel.isEnabled = true
                 binding.tvEnvStatus.text = com.rfsat.vtb.environment.EnvironmentManager.describe()
-                notifyUser("No Kestrel found nearby — make sure it's on and close by. Advertisers seen were logged (Log tab).")
+                Toast.makeText(this,
+                    "No Kestrel found nearby — make sure it's on and close by. Advertisers seen were logged (Log tab).",
+                    Toast.LENGTH_LONG).show()
             } else {
                 startKestrelRead(device)
             }
@@ -248,7 +208,9 @@ class CaptureActivity : BaseActivity() {
         com.rfsat.vtb.environment.KestrelProvider.read(this, device) { got ->
             binding.btnKestrel.isEnabled = true
             binding.tvEnvStatus.text = com.rfsat.vtb.environment.EnvironmentManager.describe()
-            if (!got) notifyUser("Kestrel connected but no readable environment values — its GATT layout was logged (Log tab) for exact wiring.")
+            if (!got) Toast.makeText(this,
+                "Kestrel connected but no readable environment values — its GATT layout was logged (Log tab) for exact wiring.",
+                Toast.LENGTH_LONG).show()
         }
     }
 
@@ -307,7 +269,6 @@ class CaptureActivity : BaseActivity() {
         repo.saveRifle(rifle)
     }
 
-    @androidx.annotation.OptIn(androidx.camera.camera2.interop.ExperimentalCamera2Interop::class)
     private fun startCamera() {
         val providerFuture = ProcessCameraProvider.getInstance(this)
         providerFuture.addListener({
@@ -315,25 +276,12 @@ class CaptureActivity : BaseActivity() {
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(binding.previewView.surfaceProvider)
             }
-            // v19.0: FHD preferred — high-frame-rate modes live at FHD, and
-            // 640 px analysis gains nothing from 4K frames that cost 4x the
-            // decode time.
-            val recorder = Recorder.Builder()
-                .setQualitySelector(
-                    androidx.camera.video.QualitySelector.from(
-                        androidx.camera.video.Quality.FHD,
-                        androidx.camera.video.FallbackStrategy.higherQualityOrLowerThan(
-                            androidx.camera.video.Quality.FHD
-                        )
-                    )
-                )
-                .build()
+            val recorder = Recorder.Builder().build()
             val capture = VideoCapture.withOutput(recorder)
             videoCapture = capture
 
             provider.unbindAll()
             val camera = provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
-            configureCaptureForAnalysis(camera)
             // Auto-FOV: fill the field from the real optics now and whenever
             // the zoom changes (a zoom change invalidates any manual value).
             // The field stays editable for imported clips from other devices.
@@ -407,17 +355,17 @@ class CaptureActivity : BaseActivity() {
     private fun toggleArm() {
         if (isArmed) { disarm(); return }
         if (!audioPermissionGranted) {
-            notifyUser("Microphone permission is required for auto-trigger.")
+            Toast.makeText(this, "Microphone permission is required for auto-trigger.", Toast.LENGTH_LONG).show()
             permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
             return
         }
         if (videoCapture == null) {
-            notifyUser("Camera isn't ready yet.")
+            Toast.makeText(this, "Camera isn't ready yet.", Toast.LENGTH_SHORT).show()
             return
         }
         val previewBitmap = binding.previewView.bitmap
         if (previewBitmap == null) {
-            notifyUser("Preview isn't ready yet — try again in a moment.")
+            Toast.makeText(this, "Preview isn't ready yet — try again in a moment.", Toast.LENGTH_SHORT).show()
             return
         }
         pendingReferenceBitmap = previewBitmap
@@ -496,7 +444,7 @@ class CaptureActivity : BaseActivity() {
     private fun runAnalysis() {
         val uri = pendingUri
         if (uri == null) {
-            notifyUser("No video available yet — record or import one first.")
+            Toast.makeText(this, "No video available yet — record or import one first.", Toast.LENGTH_SHORT).show()
             return
         }
         val shotBreakOffsetS = binding.etShotBreakSeconds.text.toString().toDoubleOrNull() ?: 0.5
@@ -506,7 +454,7 @@ class CaptureActivity : BaseActivity() {
         // (e.g. a distance typed into the wrong field) poison every result.
         if (fovDeg !in 10.0..120.0) {
             Logger.e(TAG, "Rejected analysis: FOV $fovDeg deg outside 10-120")
-            notifyUser("Camera FOV must be 10–120° (got ${"%.0f".format(fovDeg)}°).")
+            Toast.makeText(this, "Camera FOV must be 10–120° (got ${"%.0f".format(fovDeg)}°).", Toast.LENGTH_LONG).show()
             return
         }
         // Zoom the clip was RECORDED at. Auto-filled from the live camera;
@@ -516,7 +464,7 @@ class CaptureActivity : BaseActivity() {
         val zoom = binding.etZoom.text.toString().toDoubleOrNull() ?: 1.0
         if (zoom !in 0.5..50.0) {
             Logger.e(TAG, "Rejected analysis: zoom ${zoom}x outside 0.5-50")
-            notifyUser("Zoom must be 0.5–50× (got ${"%.1f".format(zoom)}×).")
+            Toast.makeText(this, "Zoom must be 0.5–50× (got ${"%.1f".format(zoom)}×).", Toast.LENGTH_LONG).show()
             return
         }
         // Effective FOV: the angular width actually recorded. Correct optics,
@@ -548,7 +496,7 @@ class CaptureActivity : BaseActivity() {
                 if (localFile == null) {
                     withContext(Dispatchers.Main) {
                         setUiBusy(false)
-                        notifyUser("Could not read the video file — see Log.")
+                        Toast.makeText(this@CaptureActivity, "Could not read the video file — see Log.", Toast.LENGTH_LONG).show()
                     }
                     return@launch
                 }
@@ -587,7 +535,7 @@ class CaptureActivity : BaseActivity() {
                 if (observations.isEmpty()) {
                     withContext(Dispatchers.Main) {
                         setUiBusy(false)
-                        notifyUser("No trail detected — check lighting/contrast and try again.")
+                        Toast.makeText(this@CaptureActivity, "No trail detected — check lighting/contrast and try again.", Toast.LENGTH_LONG).show()
                     }
                     return@launch
                 }
@@ -617,11 +565,8 @@ class CaptureActivity : BaseActivity() {
                         targetDistanceM = targetDistanceM
                     )
                 } else {
-                    val windScale = getSharedPreferences("vtb_wind_cal", MODE_PRIVATE)
-                        .getFloat("scale", 1.0f).toDouble()
                     WindEstimator.estimate(
-                        calibration, observations, targetDistanceM, settleTimeS = settleS,
-                        windScale = windScale
+                        calibration, observations, targetDistanceM, settleTimeS = settleS
                     )
                 }
                 // v18.0 (user request): chart index = distance covered by the
@@ -654,7 +599,6 @@ class CaptureActivity : BaseActivity() {
                 AnalysisSession.tracerMode = tracer
                 AnalysisSession.muzzleVelocityMps = bullet.muzzleVelocityMps
                 AnalysisSession.persist(this@CaptureActivity)
-                AnalysisSession.appendHistory(this@CaptureActivity)
 
                 withContext(Dispatchers.Main) {
                     setUiBusy(false)
@@ -664,7 +608,7 @@ class CaptureActivity : BaseActivity() {
                 Logger.e(TAG, "Analysis failed", t)
                 withContext(Dispatchers.Main) {
                     setUiBusy(false)
-                    notifyUser("Analysis failed: ${t.message}. See the Log tab for details.")
+                    Toast.makeText(this@CaptureActivity, "Analysis failed: ${t.message}. See the Log tab for details.", Toast.LENGTH_LONG).show()
                 }
             }
         }
