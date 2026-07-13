@@ -36,4 +36,8 @@
     <color name="primary_dark">#1B2721</color>
     <color name="accent">#C9A24B</color>
     <color name="background">#0E1210</color>
+    <color name="dark_text_dim">#C9D4C6</color>
+    <color name="day_text_dim">#3D4A3D</color>
+    <color name="ngreen_text_dim">#2BB82B</color>
+    <color name="nred_text_dim">#C93A3A</color>
 </resources>

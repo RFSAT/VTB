@@ -29,7 +29,7 @@
 
         <activity
             android:name=".ui.MainActivity"
-            android:label="VTB 18.0-R2"
+            android:label="VTB 18.0-B1f"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
