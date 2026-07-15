@@ -41,10 +41,29 @@ object KestrelProvider {
     private const val TAG = "KestrelProvider"
     private const val TIMEOUT_MS = 12_000L
 
+    /**
+     * DROP D3 protocol — VERIFIED against a real device (fw 1.59, hw Rev
+     * 9A2, GATT dump 2026-07-11). Every measurement characteristic is a
+     * 0x07 format-tag byte followed by a little-endian int16, scaled /100:
+     *   12630001 temperature  sint16/100 degC   (dump: 0x0BE3 = 30.43)
+     *   12630002 humidity     uint16/100 %      (dump: 0x17F5 = 61.33)
+     *   12630003 HEAT INDEX   /100 degC — NOT pressure; the pre-v19.2
+     *            parser read this as pressure and its raw value happened
+     *            to pass the 30-110 kPa gate (~890 hPa), silently biasing
+     *            air density ~12%
+     *   12630004 dew point    sint16/100 degC   (dump: 22.15 — matches
+     *            30.43 degC / 61.33% exactly)
+     *   12630007 station pressure uint16/100 kPa (dump: 0x279E = 101.42
+     *            kPa — agrees with the phone barometer to 0.2 hPa)
+     *   12630104 device clock (…day hour minute … year LE) — matched the
+     *            log timestamps, confirming the byte order
+     * Zeroed registers (0005/6/8/9, 000b..0f) are sensors the D3 lacks
+     * (wind etc. on other DROP/5-series models).
+     */
     private val DROP_SERVICE: UUID = UUID.fromString("12630000-cc25-497d-9854-9b6c02c77054")
     private val DROP_TEMPERATURE: UUID = UUID.fromString("12630001-cc25-497d-9854-9b6c02c77054")
     private val DROP_HUMIDITY: UUID = UUID.fromString("12630002-cc25-497d-9854-9b6c02c77054")
-    private val DROP_PRESSURE: UUID = UUID.fromString("12630003-cc25-497d-9854-9b6c02c77054")
+    private val DROP_PRESSURE: UUID = UUID.fromString("12630007-cc25-497d-9854-9b6c02c77054")
     /** Standard Bluetooth Environmental Sensing service — some firmware
      *  exposes it alongside the proprietary one; parse it when present
      *  (these UUIDs and formats ARE official Bluetooth SIG definitions). */
@@ -195,16 +214,20 @@ object KestrelProvider {
                     ESS_TEMPERATURE -> if (v.size >= 2) tempC = sle16() / 100.0
                     ESS_HUMIDITY -> if (v.size >= 2) humFrac = le16() / 10000.0
                     ESS_PRESSURE -> if (v.size >= 4) pressPa = le32() / 10.0
-                    DROP_TEMPERATURE -> if (v.size >= 2) {
-                        val t = sle16() / 100.0
-                        if (t in -60.0..80.0) tempC = t // plausibility gate on the unofficial parse
+                    // v19.2 verified layout: tag byte at [0], LE16 value at [1..2].
+                    DROP_TEMPERATURE -> if (v.size >= 3) {
+                        val raw = (v[1].toInt() and 0xFF) or ((v[2].toInt() and 0xFF) shl 8)
+                        val t = (if (raw > 0x7FFF) raw - 0x10000 else raw) / 100.0
+                        if (t in -60.0..80.0) tempC = t
                     }
-                    DROP_HUMIDITY -> if (v.size >= 2) {
-                        val h = le16() / 10000.0
+                    DROP_HUMIDITY -> if (v.size >= 3) {
+                        val raw = (v[1].toInt() and 0xFF) or ((v[2].toInt() and 0xFF) shl 8)
+                        val h = raw / 10000.0
                         if (h in 0.0..1.0) humFrac = h
                     }
-                    DROP_PRESSURE -> if (v.size >= 4) {
-                        val p = le32() / 10.0
+                    DROP_PRESSURE -> if (v.size >= 3) {
+                        val raw = (v[1].toInt() and 0xFF) or ((v[2].toInt() and 0xFF) shl 8)
+                        val p = raw * 10.0 // uint16/100 kPa -> Pa
                         if (p in 30_000.0..110_000.0) pressPa = p
                     }
                 }

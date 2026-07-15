@@ -86,10 +86,16 @@ object TrailExtractor {
             }
             val srcW = probe.width; val srcH = probe.height
             probe.recycle()
-            val scale = if (srcW > MAX_DECODE_WIDTH) MAX_DECODE_WIDTH.toDouble() / srcW else 1.0
-            val w = (srcW * scale).toInt()
-            val h = (srcH * scale).toInt()
-            Logger.i(TAG, "Source ${srcW}x${srcH}, analyzing at ${w}x${h} (scale=${"%.2f".format(scale)})")
+            // v19.6: analysis dimensions use the SAME integer-step rule as
+            // FastFrameDecoder. The old fractional scale (1080 -> 640x1137)
+            // never matched the decoder's downsample (1080/2 -> 540x960), so
+            // the dimension guard rejected every fast frame and every
+            // analysis silently paid the ~30 s legacy fallback — the log's
+            // "decode complete ... falling back" pair. One rule, both paths.
+            val step = ((srcW + MAX_DECODE_WIDTH - 1) / MAX_DECODE_WIDTH).coerceAtLeast(1)
+            val w = srcW / step
+            val h = srcH / step
+            Logger.i(TAG, "Source ${srcW}x${srcH}, analyzing at ${w}x${h} (step=$step)")
 
             // Reference (undisturbed background) luminance + gradient maps
             // (+ red-dominance map in tracer mode).
