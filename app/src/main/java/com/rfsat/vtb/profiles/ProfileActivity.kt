@@ -56,7 +56,9 @@ class ProfileActivity : BaseActivity() {
 
         // Underline section titles for visibility (no XML attribute for
         // underline; paint flags are the standard way).
-        listOf(binding.tvHeaderRifle, binding.tvHeaderBullet, binding.tvHeaderScope,
+        setupDisplaySpinners()
+
+        listOf(binding.tvHeaderDisplay, binding.tvHeaderRifle, binding.tvHeaderBullet, binding.tvHeaderScope,
                binding.tvHeaderDropCal, binding.tvHeaderWindCal, binding.tvHeaderSets).forEach {
             it.paintFlags = it.paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
         }
@@ -69,6 +71,45 @@ class ProfileActivity : BaseActivity() {
         binding.btnLoadSet.setOnClickListener { loadSelectedSet() }
         binding.btnDeleteSet.setOnClickListener { deleteSelectedSet() }
         refreshSetSpinner()
+    }
+
+    // ---- Display & units (v20.0, moved from Home) ----
+
+    private fun setupDisplaySpinners() {
+        val um = com.rfsat.vtb.ui.UnitsManager
+        val tm = com.rfsat.vtb.ui.ThemeManager
+
+        binding.spinnerTheme.adapter = android.widget.ArrayAdapter(
+            this, android.R.layout.simple_spinner_dropdown_item,
+            com.rfsat.vtb.ui.ThemeMode.values().map { it.label }
+        )
+        binding.spinnerTheme.setSelection(com.rfsat.vtb.ui.ThemeMode.values().indexOf(tm.mode()))
+        binding.spinnerTheme.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val selected = com.rfsat.vtb.ui.ThemeMode.values()[position]
+                if (selected != tm.mode()) {
+                    tm.setMode(this@ProfileActivity, selected)
+                    recreate() // re-inflate with the new theme
+                }
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+
+        binding.spinnerUnits.adapter = android.widget.ArrayAdapter(
+            this, android.R.layout.simple_spinner_dropdown_item,
+            com.rfsat.vtb.ui.UnitSystem.values().map { it.label }
+        )
+        binding.spinnerUnits.setSelection(com.rfsat.vtb.ui.UnitSystem.values().indexOf(um.system()))
+        binding.spinnerUnits.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val selected = com.rfsat.vtb.ui.UnitSystem.values()[position]
+                if (selected != um.system()) {
+                    um.setSystem(this@ProfileActivity, selected)
+                    recreate() // re-render every field/label in the new units
+                }
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
     }
 
     // ---- Wind calibration (v19.0) ----

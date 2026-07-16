@@ -117,7 +117,6 @@ open class BaseActivity : AppCompatActivity() {
                 R.id.nav_capture -> com.rfsat.vtb.capture.CaptureActivity::class.java
                 R.id.nav_profiles -> com.rfsat.vtb.profiles.ProfileActivity::class.java
                 R.id.nav_log -> com.rfsat.vtb.log.LogActivity::class.java
-                R.id.nav_about -> com.rfsat.vtb.about.AboutActivity::class.java
                 else -> return@setOnItemSelectedListener false
             }
             val intent = Intent(this, target)

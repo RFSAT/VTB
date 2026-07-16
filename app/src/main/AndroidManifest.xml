@@ -29,7 +29,7 @@
 
         <activity
             android:name=".ui.MainActivity"
-            android:label="VTB 19.9"
+            android:label="VTB 20.0"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -41,7 +41,6 @@
         <activity android:name=".capture.CaptureActivity" android:exported="false" />
         <activity android:name=".results.ResultsActivity" android:exported="false" />
         <activity android:name=".log.LogActivity" android:exported="false" />
-        <activity android:name=".about.AboutActivity" android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

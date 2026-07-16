@@ -29,45 +29,18 @@ class MainActivity : BaseActivity() {
 
     private fun initHome() {
 
-        val repo = ProfileRepository(this)
+        refreshSummary(ProfileRepository(this))
 
-        refreshSummary(repo)
+        binding.tvVersion.text =
+            "Version ${com.rfsat.vtb.BuildConfig.VERSION_NAME} " +
+            "(build ${com.rfsat.vtb.BuildConfig.VERSION_CODE}, ${com.rfsat.vtb.BuildConfig.BUILD_TYPE})"
 
-        binding.btnProfiles.setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
-        }
-        binding.btnCapture.setOnClickListener {
-            startActivity(Intent(this, CaptureActivity::class.java))
-        }
-
-        binding.spinnerTheme.adapter = android.widget.ArrayAdapter(
-            this, android.R.layout.simple_spinner_dropdown_item, ThemeMode.values().map { it.label }
+        // v20.0 credits: "Claude AI" is a live link.
+        binding.tvClaudeCredit.text = androidx.core.text.HtmlCompat.fromHtml(
+            "with support from <a href=\"https://claude.ai\">Claude AI</a>",
+            androidx.core.text.HtmlCompat.FROM_HTML_MODE_LEGACY
         )
-        binding.spinnerTheme.setSelection(ThemeMode.values().indexOf(ThemeManager.mode()))
-        binding.spinnerTheme.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
-                val selected = ThemeMode.values()[position]
-                if (selected != ThemeManager.mode()) {
-                    ThemeManager.setMode(this@MainActivity, selected)
-                    recreate() // re-inflate with the new theme
-                }
-            }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
-        }
-
-        binding.spinnerUnits.adapter = android.widget.ArrayAdapter(
-            this, android.R.layout.simple_spinner_dropdown_item, UnitSystem.values().map { it.label }
-        )
-        binding.spinnerUnits.setSelection(UnitSystem.values().indexOf(UnitsManager.system()))
-        binding.spinnerUnits.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
-                val selected = UnitSystem.values()[position]
-                if (selected != UnitsManager.system()) {
-                    UnitsManager.setSystem(this@MainActivity, selected)
-                }
-            }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
-        }
+        binding.tvClaudeCredit.movementMethod = android.text.method.LinkMovementMethod.getInstance()
 
         setupBottomNav(com.rfsat.vtb.R.id.nav_home)
     }
@@ -122,11 +95,7 @@ class MainActivity : BaseActivity() {
         binding.tvSummary.text = getString(
             com.rfsat.vtb.R.string.active_profile_summary,
             rifle.name, bullet.name, scope.name
-        ) + "\nVTB ${com.rfsat.vtb.BuildConfig.VERSION_NAME} " +
-            "(build ${com.rfsat.vtb.BuildConfig.VERSION_CODE}, ${com.rfsat.vtb.BuildConfig.BUILD_TYPE})"
-        // ^ v19.5 build fingerprint: after a chain of stale-artifact installs
-        // (compile failures abort CI before assembleRelease, so a red run
-        // yields NO new release APK), the installed binary must identify
-        // itself — the icon label and this line together end any ambiguity. + "\nVTB ${com.rfsat.vtb.BuildConfig.VERSION_NAME} (build ${com.rfsat.vtb.BuildConfig.VERSION_CODE}, ${com.rfsat.vtb.BuildConfig.BUILD_TYPE})"
+        )
+
     }
 }

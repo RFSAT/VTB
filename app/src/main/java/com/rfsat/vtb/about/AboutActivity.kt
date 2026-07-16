@@ -13,6 +13,10 @@ class AboutActivity : BaseActivity() {
         setContentView(binding.root)
 
         binding.tvVersion.text = "Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
-        setupBottomNav(com.rfsat.vtb.R.id.nav_about)
+        // v20.0: tab removed — content lives on Home; this activity is
+        // unreachable (no manifest entry, no nav item). Kept so the
+        // zip-overlay workflow can't strand a broken file; safe to delete
+        // together with activity_about.xml via git rm whenever convenient.
+        setupBottomNav(0)
     }
 }
