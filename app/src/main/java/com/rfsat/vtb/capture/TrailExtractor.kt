@@ -126,8 +126,13 @@ object TrailExtractor {
                         needRed = (mode == Mode.TRACER)) { f ->
                         if (f.width == w && f.height == h && refN < REF_FRAMES_MAX) {
                             for (i in accLum.indices) accLum[i] += f.lum[i]
-                            if (accRed != null && f.red != null)
-                                for (i in accRed.indices) accRed[i] += f.red[i]
+                            // Lambda-local vals: captured nullables don't
+                            // smart-cast inside closures (the CI compile
+                            // error "no set method providing array access").
+                            val r = accRed
+                            val fr = f.red
+                            if (r != null && fr != null)
+                                for (i in r.indices) r[i] += fr[i]
                             refN++
                         }
                     }
