@@ -64,6 +64,22 @@
             <TextView android:text="MV (fps)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etMuzzleVelocity" android:hint="fps" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:textSize="14sp"/>
         </LinearLayout>
+
+        <!-- v20.1: MV temperature sensitivity (0 = off) -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:text="MV temp coeff (m/s/°C)" android:textSize="12sp"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                <EditText android:id="@+id/etMvTempCoeff" android:hint="0"
+                    android:inputType="numberDecimal|numberSigned" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp"/>
+            </LinearLayout>
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:text="MV ref temp (°C)" android:textSize="12sp"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                <EditText android:id="@+id/etMvRefTemp" android:hint="15"
+                    android:inputType="numberDecimal|numberSigned" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="14sp"/>
+            </LinearLayout>
+        </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <TextView android:text="BC (G1)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
             <EditText android:id="@+id/etBallisticCoefficient" android:hint="G1" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:textSize="14sp"/>

@@ -671,11 +671,19 @@ class CaptureActivity : BaseActivity() {
                     "baseFov=${"%.1f".format(fovDeg)}deg zoom=${"%.1f".format(zoom)}x -> effFov=${"%.2f".format(effectiveFovDeg)}deg " +
                     "externalRef=${referenceBitmap != null}")
 
-                val bullet = repo.getBullet()
                 val activeRifle = repo.getRifle()
                 val scope = repo.getScope()
                 val atmosphere = com.rfsat.vtb.environment.EnvironmentManager.current.atmosphere
                 Logger.i(TAG, "Analysis environment: ${com.rfsat.vtb.environment.EnvironmentManager.describe()}")
+                // v20.1: MV corrected to ambient temperature (per-bullet
+                // coefficient, Settings > Bullet). One adjusted copy feeds
+                // EVERYTHING downstream — engine, estimators, recorded MV.
+                val rawBullet = repo.getBullet()
+                val bullet = rawBullet.adjustedForTemperature(atmosphere.temperatureC)
+                if (bullet !== rawBullet) Logger.i(TAG,
+                    "MV temp-adjusted: %.1f -> %.1f m/s (%.1f degC vs ref %.1f, coeff %.2f m/s/degC)"
+                        .format(rawBullet.muzzleVelocityMps, bullet.muzzleVelocityMps,
+                            atmosphere.temperatureC, rawBullet.mvRefTempC, rawBullet.mvTempCoeffMpsPerC))
 
                 // Copy the source (recorded or imported) into app cache and
                 // analyze from a plain file path — content:// Uris can crash

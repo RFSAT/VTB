@@ -359,6 +359,8 @@ class ProfileActivity : BaseActivity() {
             etCaliber.setText(bullet.caliberDiameterIn.toString())
             etWeightGrains.setText(bullet.weightGrains.toString())
             etMuzzleVelocity.setText(bullet.muzzleVelocityFps.toString())
+            etMvTempCoeff.setText(bullet.mvTempCoeffMpsPerC.toString())
+            etMvRefTemp.setText(bullet.mvRefTempC.toString())
             etBallisticCoefficient.setText(bullet.ballisticCoefficientG1.toString())
             cbTracer.isChecked = bullet.isTracer
 
@@ -391,6 +393,8 @@ class ProfileActivity : BaseActivity() {
                 caliberDiameterIn = etCaliber.text.toString().toDoubleOrNull() ?: BulletProfile.DEFAULT.caliberDiameterIn,
                 weightGrains = etWeightGrains.text.toString().toDoubleOrNull() ?: BulletProfile.DEFAULT.weightGrains,
                 muzzleVelocityFps = etMuzzleVelocity.text.toString().toDoubleOrNull() ?: BulletProfile.DEFAULT.muzzleVelocityFps,
+                mvTempCoeffMpsPerC = etMvTempCoeff.text.toString().toDoubleOrNull() ?: 0.0,
+                mvRefTempC = etMvRefTemp.text.toString().toDoubleOrNull() ?: 15.0,
                 ballisticCoefficientG1 = etBallisticCoefficient.text.toString().toDoubleOrNull() ?: BulletProfile.DEFAULT.ballisticCoefficientG1,
                 isTracer = cbTracer.isChecked
             )

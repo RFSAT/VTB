@@ -33,6 +33,8 @@ import kotlin.math.sqrt
 object TrailExtractor {
     private const val TAG = "TrailExtractor"
     private const val MAX_DECODE_WIDTH = 640
+    private const val REF_WINDOW_S = 0.35   // pre-shot span scanned for reference frames (v20.1)
+    private const val REF_FRAMES_MAX = 8    // cap: sqrt-gain flattens, memory doesn't
     private const val GRADIENT_WEIGHT = 2.0
     /** Tracer mode: weight on the red-dominance delta term. */
     private const val RED_WEIGHT = 1.5
@@ -108,15 +110,46 @@ object TrailExtractor {
                 scaledExternalReference.recycle(); scaledExternalReference = null
                 Logger.i(TAG, "Using external pre-arm reference frame (auto-trigger mode)")
             } else {
-                val refT = (shotBreakOffsetS - 0.15).coerceAtLeast(0.0)
-                val refFrame = decodeFrame(retriever, refT, w, h)
-                if (refFrame == null) {
-                    Logger.e(TAG, "No reference frame decodable at ${refT}s")
-                    return ExtractionResult(emptyList(), w, h)
+                // v20.1: MULTI-FRAME reference — average up to REF_FRAMES_MAX
+                // pre-shot frames. The single reference frame's sensor noise
+                // sat under every difference score; averaging K frames drops
+                // it ~sqrt(K), lowering the floor for faint vapor trails.
+                // Falls back to the classic single-frame lookup when the clip
+                // has no pre-shot footage (audio-detected t0 near clip start).
+                val accLum = DoubleArray(w * h)
+                val accRed = if (mode == Mode.TRACER) DoubleArray(w * h) else null
+                var refN = 0
+                val refStartS = (shotBreakOffsetS - REF_WINDOW_S).coerceAtLeast(0.0)
+                val refEndS = (shotBreakOffsetS - 0.01).coerceAtLeast(0.0)
+                if (refEndS > refStartS) {
+                    FastFrameDecoder.decode(videoPath, refStartS, refEndS, MAX_DECODE_WIDTH,
+                        needRed = (mode == Mode.TRACER)) { f ->
+                        if (f.width == w && f.height == h && refN < REF_FRAMES_MAX) {
+                            for (i in accLum.indices) accLum[i] += f.lum[i]
+                            if (accRed != null && f.red != null)
+                                for (i in accRed.indices) accRed[i] += f.red[i]
+                            refN++
+                        }
+                    }
                 }
-                refLum = luminance(refFrame)
-                if (mode == Mode.TRACER) refRed = redDominance(refFrame)
-                refFrame.recycle()
+                if (refN > 0) {
+                    for (i in accLum.indices) accLum[i] /= refN
+                    accRed?.let { r -> for (i in r.indices) r[i] /= refN }
+                    refLum = accLum
+                    if (mode == Mode.TRACER) refRed = accRed
+                    Logger.i(TAG, "Multi-frame reference: averaged $refN pre-shot frames")
+                } else {
+                    val refT = (shotBreakOffsetS - 0.15).coerceAtLeast(0.0)
+                    val refFrame = decodeFrame(retriever, refT, w, h)
+                    if (refFrame == null) {
+                        Logger.e(TAG, "No reference frame decodable at ${refT}s")
+                        return ExtractionResult(emptyList(), w, h)
+                    }
+                    refLum = luminance(refFrame)
+                    if (mode == Mode.TRACER) refRed = redDominance(refFrame)
+                    refFrame.recycle()
+                    Logger.i(TAG, "Single-frame reference (no pre-shot footage for averaging)")
+                }
             }
             // Gradient maps only matter for the refraction signature.
             val refGrad = if (mode == Mode.VAPOR) gradientMagnitude(refLum, w, h) else DoubleArray(0)

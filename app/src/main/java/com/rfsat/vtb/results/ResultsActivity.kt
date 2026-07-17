@@ -9,6 +9,11 @@ import kotlin.math.abs
 
 class ResultsActivity : BaseActivity() {
 
+    companion object {
+        /** v20.1: shots within this window count toward the session average. */
+        private const val SESSION_WINDOW_MS = 10 * 60 * 1000L
+    }
+
     private lateinit var binding: ActivityResultsBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,6 +72,25 @@ class ResultsActivity : BaseActivity() {
             "${fmt1(UnitsManager.displaySpeed(abs(adjustment.estimatedCrosswindMps)))}$sdTxt $sU " +
             (if (adjustment.estimatedCrosswindMps >= 0) "\u2192" else "\u2190") + // →  L-to-R / ← R-to-L
             " · conf ${(adjustment.windConfidence * 100).toInt()}%"
+
+        // v20.1: session average — the sqrt(N) win. Signed mean of the
+        // valid shots in the last SESSION_WINDOW so stale wind ages out;
+        // the sd shown is of the MEAN (sd/sqrt(N)): "what the average is
+        // worth", complementing the single-shot spread above.
+        val sessionCutoff = System.currentTimeMillis() - SESSION_WINDOW_MS
+        val session = AnalysisSession.history(this).filter { it.timestampMs >= sessionCutoff }
+        if (session.size >= 2) {
+            val mean = session.sumOf { it.crosswindMps } / session.size
+            val sd = kotlin.math.sqrt(session.sumOf { val d = it.crosswindMps - mean; d * d } / session.size)
+            val sem = sd / kotlin.math.sqrt(session.size.toDouble())
+            binding.rowSession.visibility = View.VISIBLE
+            binding.tvRowSession.text =
+                "${fmt1(UnitsManager.displaySpeed(kotlin.math.abs(mean)))} ±${fmt1(UnitsManager.displaySpeed(sem))} $sU " +
+                (if (mean >= 0) "→" else "←") +
+                " · ${session.size} shots"
+        } else {
+            binding.rowSession.visibility = View.GONE
+        }
 
         val latM = adjustment.impactOffsetMAtTarget.z
         val vertM = adjustment.impactOffsetMAtTarget.y
