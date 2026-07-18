@@ -80,29 +80,12 @@ open class BaseActivity : AppCompatActivity() {
         findViewById<android.view.View>(R.id.btnExit)?.setOnClickListener {
             finishAffinity() // close the whole task, not just this screen
         }
-        // Results also lives outside the capped menu; tint it like a selected
-        // nav item when the Results screen is active.
-        findViewById<android.view.View>(R.id.btnResults)?.setOnClickListener {
-            if (selectedItemId != R.id.nav_results) {
-                startActivity(Intent(this, com.rfsat.vtb.results.ResultsActivity::class.java))
-                if (this !is MainActivity) finish()
-                overridePendingTransition(0, 0) // v17.1: no tab-hop animation
-            }
-        }
-        findViewById<android.widget.ImageView>(R.id.ivResults)?.let { iv ->
-            if (selectedItemId == R.id.nav_results) {
-                val tv = android.util.TypedValue()
-                theme.resolveAttribute(com.google.android.material.R.attr.colorAccent, tv, true)
-                iv.imageTintList = android.content.res.ColorStateList.valueOf(
-                    if (tv.resourceId != 0) getColor(tv.resourceId) else tv.data
-                )
-            }
-        }
+        // v20.4: Results is a REAL menu item now (About's removal freed the
+        // fifth slot), so the v17.1 fake-highlight workaround is gone —
+        // selection and tinting come from BottomNavigationView itself.
         val nav = findViewById<BottomNavigationView>(R.id.bottomNav) ?: return
-        // v17.1: nav_results is NOT a BottomNavigationView menu item (it's the
-        // separate toolbar icon), so assigning it as selectedItemId was a
-        // no-op — leaving the default first item (Home) lit while the
-        // Corrections screen was active. Deselect the whole group instead.
+        // Deselect the whole group for screens outside the tab set (the
+        // retired About screen passes 0).
         if (nav.menu.findItem(selectedItemId) != null) {
             nav.selectedItemId = selectedItemId // set BEFORE the listener to avoid a callback loop
         } else {
@@ -123,6 +106,7 @@ open class BaseActivity : AppCompatActivity() {
         val target = when (itemId) {
             R.id.nav_home -> MainActivity::class.java
             R.id.nav_capture -> com.rfsat.vtb.capture.CaptureActivity::class.java
+            R.id.nav_results -> com.rfsat.vtb.results.ResultsActivity::class.java
             R.id.nav_profiles -> com.rfsat.vtb.profiles.ProfileActivity::class.java
             R.id.nav_log -> com.rfsat.vtb.log.LogActivity::class.java
             else -> return
@@ -146,7 +130,7 @@ open class BaseActivity : AppCompatActivity() {
     // interactive horizontal controls via swipeExemptViews().
 
     private var navSelectedItemId: Int = 0
-    private val tabOrder = intArrayOf(R.id.nav_home, R.id.nav_capture, R.id.nav_profiles, R.id.nav_log)
+    private val tabOrder = intArrayOf(R.id.nav_home, R.id.nav_capture, R.id.nav_results, R.id.nav_profiles, R.id.nav_log)
     private var swipeDownX = 0f
     private var swipeDownY = 0f
     private var swipeDownT = 0L

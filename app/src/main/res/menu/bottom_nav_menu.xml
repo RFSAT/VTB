@@ -2,6 +2,7 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@+id/nav_home" android:icon="@drawable/ic_nav_home" android:title="@string/nav_home" />
     <item android:id="@+id/nav_capture" android:icon="@drawable/ic_nav_capture" android:title="Capture" />
+    <item android:id="@+id/nav_results" android:icon="@drawable/ic_nav_results" android:title="@string/nav_results" />
     <item android:id="@+id/nav_profiles" android:icon="@drawable/ic_nav_profiles" android:title="Settings" />
     <item android:id="@+id/nav_log" android:icon="@drawable/ic_nav_log" android:title="@string/nav_log" />
 </menu>
