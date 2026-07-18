@@ -139,8 +139,17 @@ object TrailExtractor {
                     }
                 }
                 if (refN > 0) {
-                    for (i in accLum.indices) accLum[i] /= refN
-                    for (i in accRed.indices) accRed[i] /= refN
+                    // v20.5: plain assignment with matching Double types.
+                    // `accLum[i] /= refN` is a MIXED-TYPE compound assignment
+                    // on an indexed expression (Double element, Int operand)
+                    // — K1 fails to resolve it with "No set method providing
+                    // array access" (the CI error at these very lines; the
+                    // Double += Double lines above compiled fine, which is
+                    // the tell). Multiplying by a precomputed Double inverse
+                    // uses only get/set with identical types.
+                    val invN = 1.0 / refN
+                    for (i in accLum.indices) accLum[i] = accLum[i] * invN
+                    for (i in accRed.indices) accRed[i] = accRed[i] * invN
                     refLum = accLum
                     if (mode == Mode.TRACER) refRed = accRed
                     Logger.i(TAG, "Multi-frame reference: averaged $refN pre-shot frames")
