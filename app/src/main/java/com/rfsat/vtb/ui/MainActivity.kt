@@ -92,24 +92,12 @@ class MainActivity : BaseActivity() {
         val rifle = repo.getRifle()
         val bullet = repo.getBullet()
         val scope = repo.getScope()
-        // v20.10: name the active saved set (if any) and add each profile's
-        // key identifying spec, so the Home tab unambiguously reflects what
-        // is selected in Settings — not just names that might coincide.
+        // v20.11: names only — the specs live in Settings. The active set
+        // name still leads (if any) so Home shows WHICH selection is active.
         val setLine = repo.getActiveSetName()?.let { "Set: $it\n" } ?: ""
-        val bulletSpec = "${bullet.weightGrains.toInt()}gr, ${bullet.muzzleVelocityFps.toInt()} fps" +
-            if (bullet.isTracer) ", tracer" else ""
-        val scopeSpec = when (scope.clickUnit) {
-            com.rfsat.vtb.profiles.ClickUnit.MRAD_TENTH -> "0.1 MRAD/click"
-            com.rfsat.vtb.profiles.ClickUnit.MOA_QUARTER -> "1/4 MOA/click"
-            com.rfsat.vtb.profiles.ClickUnit.MOA_EIGHTH -> "1/8 MOA/click"
-        }
-        val zeroM = rifle.zeroDistanceM
-        val zeroTxt = com.rfsat.vtb.ui.UnitsManager.let {
-            "${String.format("%.0f", it.displayDistance(zeroM))} ${it.distanceUnitLabel()}"
-        }
-        binding.tvSummary.text = setLine +
-            "Rifle: ${rifle.name} (zero $zeroTxt)\n" +
-            "Bullet: ${bullet.name} ($bulletSpec)\n" +
-            "Scope: ${scope.name} ($scopeSpec)"
+        binding.tvSummary.text = setLine + getString(
+            com.rfsat.vtb.R.string.active_profile_summary,
+            rifle.name, bullet.name, scope.name
+        )
     }
 }
