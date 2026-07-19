@@ -56,14 +56,20 @@
             android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp"/>
         <!-- v20.6: factory-ammunition catalogue; fills the fields below as a
              seed for the normal edit-and-save flow. -->
+        <!-- v20.8: short single-line labels; minWidth/padding zeroed so four
+             buttons share the row without wrapping in any theme/font scale. -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="4dp">
-            <Button android:id="@+id/btnAmmoCatalog" android:text="Catalogue…" android:textSize="12sp"
-                android:layout_width="0dp" android:layout_weight="1.2" android:layout_height="wrap_content"/>
-            <Button android:id="@+id/btnChronograph" android:text="Chrono…" android:textSize="12sp"
+            <Button android:id="@+id/btnAmmoCatalog" android:text="Catalog" android:textSize="12sp"
+                android:maxLines="1" android:minWidth="0dp" android:paddingLeft="4dp" android:paddingRight="4dp"
+                android:layout_width="0dp" android:layout_weight="1.1" android:layout_height="wrap_content"/>
+            <Button android:id="@+id/btnChronograph" android:text="Chrono" android:textSize="12sp"
+                android:maxLines="1" android:minWidth="0dp" android:paddingLeft="4dp" android:paddingRight="4dp"
                 android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
-            <Button android:id="@+id/btnBulletCsvExport" android:text="→CSV" android:textSize="12sp"
+            <Button android:id="@+id/btnBulletCsvExport" android:text="Save" android:textSize="12sp"
+                android:maxLines="1" android:minWidth="0dp" android:paddingLeft="4dp" android:paddingRight="4dp"
                 android:layout_width="0dp" android:layout_weight="0.9" android:layout_height="wrap_content"/>
-            <Button android:id="@+id/btnBulletCsvImport" android:text="CSV→" android:textSize="12sp"
+            <Button android:id="@+id/btnBulletCsvImport" android:text="Load" android:textSize="12sp"
+                android:maxLines="1" android:minWidth="0dp" android:paddingLeft="4dp" android:paddingRight="4dp"
                 android:layout_width="0dp" android:layout_weight="0.9" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
