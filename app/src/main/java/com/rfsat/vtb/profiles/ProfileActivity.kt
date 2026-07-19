@@ -411,6 +411,10 @@ class ProfileActivity : BaseActivity() {
             this, android.R.layout.simple_spinner_dropdown_item,
             if (names.isEmpty()) listOf("(no saved sets)") else names
         )
+        // v20.10: point the spinner at the active set so Settings agrees with Home.
+        repo.getActiveSetName()?.let { active ->
+            names.indexOf(active).takeIf { it >= 0 }?.let { binding.spinnerProfileSets.setSelection(it) }
+        }
     }
 
     private fun promptSaveSet() {
@@ -448,6 +452,7 @@ class ProfileActivity : BaseActivity() {
         repo.saveRifle(set.rifle)
         repo.saveBullet(set.bullet)
         repo.saveScope(set.scope)
+        repo.setActiveSetName(set.name) // v20.10: Home names the active set
         loadIntoFields()
         refreshDropReadouts()
         notifyUser("Loaded set \"${set.name}\" as active.")
@@ -622,6 +627,7 @@ class ProfileActivity : BaseActivity() {
     }
 
     private fun saveFromFields() = with(binding) {
+        repo.clearActiveSetName() // a manual edit detaches from any saved set
         repo.saveRifle(
             (pendingRifleBase ?: repo.getRifle())
                 .also { pendingRifleBase = null }

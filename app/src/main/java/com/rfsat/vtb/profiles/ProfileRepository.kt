@@ -107,13 +107,22 @@ class ProfileRepository(context: Context) {
 
     fun deleteSet(name: String) {
         prefs.edit().putString(KEY_SETS, gson.toJson(getSets().filter { it.name != name })).apply()
+        if (getActiveSetName() == name) clearActiveSetName()
     }
+
+    // v20.10: remember which saved set is active, so Home can name it and
+    // Settings can restore the spinner to it. Cleared whenever the active
+    // profiles are edited directly (they no longer match the set snapshot).
+    fun getActiveSetName(): String? = prefs.getString(KEY_ACTIVE_SET, null)?.ifBlank { null }
+    fun setActiveSetName(name: String) = prefs.edit().putString(KEY_ACTIVE_SET, name).apply()
+    fun clearActiveSetName() = prefs.edit().remove(KEY_ACTIVE_SET).apply()
 
     companion object {
         private const val KEY_RIFLE = "rifle_profile"
         private const val KEY_BULLET = "bullet_profile"
         private const val KEY_SCOPE = "scope_profile"
         private const val KEY_SETS = "profile_sets"
+        private const val KEY_ACTIVE_SET = "active_set_name"
     }
 }
 
