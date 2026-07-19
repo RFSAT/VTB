@@ -45,8 +45,8 @@
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <TextView android:text="Barrel" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
-            <EditText android:id="@+id/etBarrelLength" android:hint="in" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="0.72" android:layout_height="wrap_content" android:textSize="14sp"/>
-            <Spinner android:id="@+id/spUBarrel" android:layout_width="0dp" android:layout_weight="0.28" android:layout_height="wrap_content"/>
+            <EditText android:id="@+id/etBarrelLength" android:hint="in" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="0.55" android:layout_height="wrap_content" android:textSize="14sp"/>
+            <Spinner android:id="@+id/spUBarrel" android:layout_width="0dp" android:layout_weight="0.45" android:minWidth="64dp" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <TextView android:text="Twist (in/t)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
@@ -54,8 +54,8 @@
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <TextView android:id="@+id/tvZeroLabel" android:text="Zero (m)" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
-            <EditText android:id="@+id/etZeroDistance" android:hint="distance" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="0.72" android:layout_height="wrap_content" android:textSize="14sp"/>
-            <Spinner android:id="@+id/spUZero" android:layout_width="0dp" android:layout_weight="0.28" android:layout_height="wrap_content"/>
+            <EditText android:id="@+id/etZeroDistance" android:hint="distance" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="0.55" android:layout_height="wrap_content" android:textSize="14sp"/>
+            <Spinner android:id="@+id/spUZero" android:layout_width="0dp" android:layout_weight="0.45" android:minWidth="64dp" android:layout_height="wrap_content"/>
         </LinearLayout>
 
         <TextView android:id="@+id/tvHeaderBullet" android:text="@string/bullet_profile" android:textStyle="bold" android:textSize="18sp"
@@ -84,18 +84,18 @@
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <TextView android:text="Diameter" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
-            <EditText android:id="@+id/etCaliber" android:hint="in" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="0.72" android:layout_height="wrap_content" android:textSize="14sp"/>
-            <Spinner android:id="@+id/spUCaliber" android:layout_width="0dp" android:layout_weight="0.28" android:layout_height="wrap_content"/>
+            <EditText android:id="@+id/etCaliber" android:hint="in" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="0.55" android:layout_height="wrap_content" android:textSize="14sp"/>
+            <Spinner android:id="@+id/spUCaliber" android:layout_width="0dp" android:layout_weight="0.45" android:minWidth="64dp" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <TextView android:text="Weight" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
-            <EditText android:id="@+id/etWeightGrains" android:hint="grains" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="0.72" android:layout_height="wrap_content" android:textSize="14sp"/>
-            <Spinner android:id="@+id/spUWeight" android:layout_width="0dp" android:layout_weight="0.28" android:layout_height="wrap_content"/>
+            <EditText android:id="@+id/etWeightGrains" android:hint="grains" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="0.55" android:layout_height="wrap_content" android:textSize="14sp"/>
+            <Spinner android:id="@+id/spUWeight" android:layout_width="0dp" android:layout_weight="0.45" android:minWidth="64dp" android:layout_height="wrap_content"/>
         </LinearLayout>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
             <TextView android:text="MV" android:textSize="12sp" android:layout_width="84dp" android:layout_height="wrap_content" android:layout_gravity="center_vertical"/>
-            <EditText android:id="@+id/etMuzzleVelocity" android:hint="fps" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="0.72" android:layout_height="wrap_content" android:textSize="14sp"/>
-            <Spinner android:id="@+id/spUMv" android:layout_width="0dp" android:layout_weight="0.28" android:layout_height="wrap_content"/>
+            <EditText android:id="@+id/etMuzzleVelocity" android:hint="fps" android:inputType="numberDecimal" android:layout_width="0dp" android:layout_weight="0.55" android:layout_height="wrap_content" android:textSize="14sp"/>
+            <Spinner android:id="@+id/spUMv" android:layout_width="0dp" android:layout_weight="0.45" android:minWidth="64dp" android:layout_height="wrap_content"/>
         </LinearLayout>
 
         <!-- v20.1: MV temperature sensitivity (0 = off) -->
