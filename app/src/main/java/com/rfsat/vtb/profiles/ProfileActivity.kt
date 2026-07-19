@@ -57,6 +57,7 @@ class ProfileActivity : BaseActivity() {
         // Underline section titles for visibility (no XML attribute for
         // underline; paint flags are the standard way).
         setupDisplaySpinners()
+        binding.btnAmmoCatalog.setOnClickListener { showAmmoCatalog() }
 
         listOf(binding.tvHeaderDisplay, binding.tvHeaderRifle, binding.tvHeaderBullet, binding.tvHeaderScope,
                binding.tvHeaderDropCal, binding.tvHeaderWindCal, binding.tvHeaderSets).forEach {
@@ -71,6 +72,84 @@ class ProfileActivity : BaseActivity() {
         binding.btnLoadSet.setOnClickListener { loadSelectedSet() }
         binding.btnDeleteSet.setOnClickListener { deleteSelectedSet() }
         refreshSetSpinner()
+    }
+
+    // ---- Factory ammunition catalogue (v20.6) ----
+
+    /** Set by a catalogue pick, consumed by Save: the drag calibration
+     *  factor belongs to a LOAD, so choosing a new cartridge resets it to
+     *  1.0 — but only when the user actually saves. Resetting the stored
+     *  profile at pick time would corrupt the previous load's calibration
+     *  if the user cancelled instead. */
+    private var pendingDragCalReset = false
+
+    private fun showAmmoCatalog() {
+        val v = layoutInflater.inflate(com.rfsat.vtb.R.layout.dialog_ammo_catalog, null)
+        val spMfr = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spCatMfr)
+        val spCal = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spCatCal)
+        val spVel = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spCatVel)
+        val spWeight = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spCatWeight)
+        val spType = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spCatType)
+        val tvCount = v.findViewById<android.widget.TextView>(com.rfsat.vtb.R.id.tvCatCount)
+        val lv = v.findViewById<android.widget.ListView>(com.rfsat.vtb.R.id.lvCatResults)
+
+        fun spinner(sp: android.widget.Spinner, items: List<String>) {
+            val a = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, items)
+            a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            sp.adapter = a
+        }
+        spinner(spMfr, AmmoCatalog.manufacturers())
+        spinner(spCal, AmmoCatalog.calibers())
+        spinner(spVel, AmmoCatalog.velocityClasses())
+        spinner(spWeight, AmmoCatalog.weights())
+        spinner(spType, AmmoCatalog.types())
+
+        var current: List<AmmoCatalog.Entry> = emptyList()
+        fun refresh() {
+            current = AmmoCatalog.filter(
+                spMfr.selectedItem as String, spCal.selectedItem as String,
+                spVel.selectedItem as String, spWeight.selectedItem as String,
+                spType.selectedItem as String
+            )
+            tvCount.text = "${current.size} of ${AmmoCatalog.entries.size} cartridges"
+            lv.adapter = android.widget.ArrayAdapter(
+                this, android.R.layout.simple_list_item_1, current.map { it.label() })
+        }
+        val onSel = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: android.widget.AdapterView<*>?, w: android.view.View?, pos: Int, id: Long) = refresh()
+            override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
+        }
+        listOf(spMfr, spCal, spVel, spWeight, spType).forEach { it.onItemSelectedListener = onSel }
+        refresh()
+
+        val dlg = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Ammunition catalogue")
+            .setView(v)
+            .setNegativeButton("Cancel", null)
+            .create()
+        lv.setOnItemClickListener { _, _, pos, _ ->
+            val b = current.getOrNull(pos) ?: return@setOnItemClickListener
+            applyCatalogEntry(b.toBulletProfile())
+            dlg.dismiss()
+        }
+        dlg.show()
+    }
+
+    /** Fill the bullet FIELDS only — review, tweak and Save via the normal
+     *  flow, so custom profiles keep working exactly as before. */
+    private fun applyCatalogEntry(b: BulletProfile) {
+        with(binding) {
+            etBulletName.setText(b.name)
+            etCaliber.setText(b.caliberDiameterIn.toString())
+            etWeightGrains.setText(b.weightGrains.toString())
+            etMuzzleVelocity.setText(b.muzzleVelocityFps.toString())
+            etBallisticCoefficient.setText(b.ballisticCoefficientG1.toString())
+            etMvTempCoeff.setText("0.0")
+            etMvRefTemp.setText("15.0")
+            cbTracer.isChecked = false
+        }
+        pendingDragCalReset = true
+        notifyUser("Catalogue values loaded — review and Save (drag factor resets to 1.0; re-run drop calibration for the new load).")
     }
 
     // ---- Display & units (v20.0, moved from Home) ----
@@ -388,7 +467,10 @@ class ProfileActivity : BaseActivity() {
             // by the drop-calibration solver, not by any text field — is
             // PRESERVED. Constructing a fresh BulletProfile here silently
             // reset it to 1.0 on every save.
-            repo.getBullet().copy(
+            repo.getBullet()
+                .let { if (pendingDragCalReset) it.copy(dragCalibrationFactor = 1.0) else it }
+                .also { pendingDragCalReset = false }
+                .copy(
                 name = etBulletName.text.toString().ifBlank { BulletProfile.DEFAULT.name },
                 caliberDiameterIn = etCaliber.text.toString().toDoubleOrNull() ?: BulletProfile.DEFAULT.caliberDiameterIn,
                 weightGrains = etWeightGrains.text.toString().toDoubleOrNull() ?: BulletProfile.DEFAULT.weightGrains,
