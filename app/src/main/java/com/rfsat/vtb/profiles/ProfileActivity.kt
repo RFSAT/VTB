@@ -38,6 +38,10 @@ class ProfileActivity : BaseActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
+        // v20.13: field-unit bindings MUST be created before loadIntoFields(),
+        // which assigns through them (uBarrel.set(...) etc.). The v20.9
+        // ordering had setup running later in onCreate -> lateinit crash.
+        setupFieldUnits()
         loadIntoFields()
 
         binding.btnSave.setOnClickListener {
@@ -57,7 +61,6 @@ class ProfileActivity : BaseActivity() {
         // Underline section titles for visibility (no XML attribute for
         // underline; paint flags are the standard way).
         setupDisplaySpinners()
-        setupFieldUnits()
         binding.btnAmmoCatalog.setOnClickListener { showAmmoCatalog() }
         binding.btnScopeCatalog.setOnClickListener { showScopeCatalog() }
         binding.btnChronograph.setOnClickListener { showChronograph() }
