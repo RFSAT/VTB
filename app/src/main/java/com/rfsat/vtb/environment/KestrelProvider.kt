@@ -14,8 +14,19 @@ import com.rfsat.vtb.log.Logger
 import java.util.UUID
 
 /**
- * Reads environmental data from a PAIRED Kestrel meter over BLE (v17.0) —
- * targets the Kestrel 5700 Elite and the Kestrel DROP D3 logger.
+ * Reads environmental data from a Kestrel meter over BLE (v17.0) —
+ * supports the Kestrel 5700 Elite / 5700X (incl. the Ruger-branded LiNK
+ * variant) and the Kestrel DROP D3 logger.
+ *
+ * DEVICE RECOGNITION (v20.17): the 5700-series with LiNK bonds normally
+ * and advertises under names like "Kestrel 5700", "Kestrel Elite" or a
+ * Ruger co-brand ("Ruger 5700", "RUGER LiNK"); the DROP D3 is
+ * advertising-only ("Kestrel D3"). isKestrelName() matches all of these,
+ * so both the bonded-device path (5700) and the scan path (D3) find the
+ * meter. The 5700 with LiNK exposes standard Bluetooth Environmental
+ * Sensing (ESS) which the read path below already parses; the DROP
+ * proprietary service is parsed too. Whatever a given unit exposes, the
+ * discovery log captures its true layout.
  *
  * HONESTY NOTE ON THE PROTOCOL: Kestrel's GATT layout is proprietary and
  * undocumented. This implementation does two things:
@@ -72,12 +83,32 @@ object KestrelProvider {
     private val ESS_HUMIDITY: UUID = UUID.fromString("00002a6f-0000-1000-8000-00805f9b34fb")    // uint16, 0.01 %
     private val ESS_PRESSURE: UUID = UUID.fromString("00002a6d-0000-1000-8000-00805f9b34fb")    // uint32, 0.1 Pa
 
+    /**
+     * Recognises every Kestrel VTB supports by advertised/bonded name.
+     * "kestrel" and "drop" cover NK's own naming; "5700"/"elite" catch
+     * abbreviated 5-series names; the Ruger co-brand ships the same 5700
+     * hardware under a Ruger name with "link"/"ruger". Matching is broad
+     * on purpose — a false match merely triggers a discovery+read that
+     * finds no environmental service and takes no value (never a garbage
+     * parse), while a missed match means no connection at all.
+     */
+    fun isKestrelName(name: String?): Boolean {
+        if (name.isNullOrBlank()) return false
+        val n = name.lowercase()
+        return n.contains("kestrel") || n.contains("drop") ||
+               n.contains("5700") || n.contains("elite") ||
+               ((n.contains("ruger") || n.contains("link")) &&
+                   // avoid matching unrelated "link" devices: require a
+                   // Kestrel/Ruger/weather hint alongside a bare "link"
+                   (n.contains("ruger") || n.contains("kestrel") || n.contains("nk ")))
+    }
+
     /** A bonded device that looks like a Kestrel, or null. */
     @SuppressLint("MissingPermission") // caller checks BLUETOOTH_CONNECT
     fun findPairedKestrel(): BluetoothDevice? {
         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return null
         return runCatching {
-            adapter.bondedDevices.firstOrNull { it.name?.contains("kestrel", ignoreCase = true) == true }
+            adapter.bondedDevices.firstOrNull { isKestrelName(it.name) }
         }.getOrNull()
     }
 
@@ -106,9 +137,7 @@ object KestrelProvider {
             override fun onScanResult(callbackType: Int, result: android.bluetooth.le.ScanResult) {
                 val name = result.device.name ?: result.scanRecord?.deviceName ?: return
                 if (seenNames.add(name)) Logger.i(TAG, "BLE advertiser: \"$name\" rssi=${result.rssi}")
-                if (name.contains("kestrel", ignoreCase = true) ||
-                    name.contains("drop", ignoreCase = true)
-                ) {
+                if (isKestrelName(name)) {
                     if (done) return
                     done = true
                     runCatching { scanner.stopScan(this) }
