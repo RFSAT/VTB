@@ -29,7 +29,7 @@
 
         <activity
             android:name=".ui.MainActivity"
-            android:label="VTB 20.20"
+            android:label="VTB 20.21"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -130,7 +130,7 @@ class CaptureActivity : BaseActivity() {
             .setPositiveButton("From scope") { _, _ ->
                 val z = input.text.toString().toDoubleOrNull()?.coerceIn(scope.zoomMin, scope.zoomMax) ?: scope.zoomMin
                 val fovAt1x = scope.fovAtBaseDeg * scope.zoomMin
-                binding.etFov.setText(String.format("%.2f", fovAt1x))
+                binding.etHorizontalFov.setText(String.format("%.2f", fovAt1x))
                 binding.etZoom.setText(String.format("%.1f", z))
                 Logger.i(TAG, "Scope-source import: ${scope.name} fovBase=${scope.fovAtBaseDeg}° zoom=$z -> fov@1x=${"%.2f".format(fovAt1x)}°")
                 notifyUser("Scope geometry applied (${scope.name}, ${z}×). Ready to analyze.")
