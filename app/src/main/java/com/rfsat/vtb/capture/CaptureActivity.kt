@@ -992,6 +992,10 @@ class CaptureActivity : BaseActivity() {
                 AnalysisSession.effectiveFovDeg = effectiveFovDeg
                 AnalysisSession.tracerMode = tracer
                 AnalysisSession.muzzleVelocityMps = bullet.muzzleVelocityMps
+                com.rfsat.vtb.profiles.ProfileRepository(this@CaptureActivity).let { rp ->
+                    AnalysisSession.profileFingerprint =
+                        "${rp.getRifle().name}|${rp.getBullet().name}|${rp.getScope().name}"
+                }
                 AnalysisSession.persist(this@CaptureActivity)
                 AnalysisSession.appendHistory(this@CaptureActivity)
 

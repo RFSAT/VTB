@@ -22,6 +22,8 @@ class ResultsActivity : BaseActivity() {
         setContentView(binding.root)
         setupBottomNav(com.rfsat.vtb.R.id.nav_results)
 
+        maybeRecomputeForProfiles() // v1.20.27: follow rifle/bullet changes
+
         val adjustment = AnalysisSession.adjustment
         if (adjustment == null) {
             binding.tvWindageBig.text = "—"
@@ -289,6 +291,40 @@ class ResultsActivity : BaseActivity() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    /**
+     * v1.20.27: the wind estimate is a property of the AIR, not the rifle —
+     * so when the active rifle/bullet/scope differ from those the stored
+     * adjustment was computed for, recompute the corrections from the most
+     * recent wind samples against the CURRENT profiles (same calculator as
+     * the manual "apply wind to other profile" feature). The original
+     * analysis stays in history; a warning line marks the recompute.
+     */
+    private fun maybeRecomputeForProfiles() {
+        AnalysisSession.adjustment ?: return
+        if (AnalysisSession.windSamples.isEmpty()) return
+        val repo = com.rfsat.vtb.profiles.ProfileRepository(this)
+        val rifle = repo.getRifle(); val bullet = repo.getBullet(); val scope = repo.getScope()
+        val fp = "${rifle.name}|${bullet.name}|${scope.name}"
+        if (AnalysisSession.profileFingerprint.isEmpty()) {
+            AnalysisSession.profileFingerprint = fp // legacy payload: adopt current
+            return
+        }
+        if (fp == AnalysisSession.profileFingerprint) return
+        val re = AdjustmentCalculator.computeAdjustment(
+            bullet, rifle, scope,
+            com.rfsat.vtb.environment.EnvironmentManager.current.atmosphere,
+            targetDistanceYd = AnalysisSession.targetDistanceYd,
+            windSamples = AnalysisSession.windSamples
+        )
+        AnalysisSession.adjustment = re.copy(warnings = re.warnings +
+            ("Recomputed for current profiles (${rifle.name} + ${bullet.name}) from the last " +
+             "measured wind. Wind is gusty — re-measure if conditions may have changed."))
+        AnalysisSession.muzzleVelocityMps = bullet.muzzleVelocityMps
+        AnalysisSession.profileFingerprint = fp
+        AnalysisSession.persist(this)
+        com.rfsat.vtb.log.Logger.i("Results", "Adjustment recomputed for changed profiles: $fp")
     }
 
     private fun showTransferredAdjustment(set: com.rfsat.vtb.profiles.ProfileSet, targetDistanceM: Double) {
