@@ -43,6 +43,10 @@ class CaptureActivity : BaseActivity() {
     private var lastAutoFov: String? = null
     private var recording: Recording? = null
     private var pendingUri: Uri? = null // set by the recorder, the video-import picker, or an auto-trigger
+    // v20.23: scope Wi-Fi stream capture (EXPERIMENTAL)
+    private var streamRecorder: RtspStreamRecorder? = null
+    private var scopeWifiNetwork: android.net.Network? = null
+    private var networkCallback: android.net.ConnectivityManager.NetworkCallback? = null
 
     private var rifle: RifleProfile = RifleProfile.DEFAULT
     private val nudgeStep = 0.005 // normalized frame fraction per tap
@@ -161,7 +165,9 @@ class CaptureActivity : BaseActivity() {
         binding.btnNudgeDown.setOnClickListener { nudgeBoresight(0.0, nudgeStep) }
         binding.btnNudgeReset.setOnClickListener { setBoresight(0.0, 0.0) }
 
-        binding.btnRecord.setOnClickListener { toggleRecording() }
+        binding.btnRecord.setOnClickListener {
+            if (scopeSourceSelected()) toggleStreamRecording() else toggleRecording()
+        }
         // v19.9: the SLIDER commands the camera (unit steps); the Zoom (x)
         // field is descriptive again — auto-echoed from the camera, manual
         // only for imported clips.
@@ -178,6 +184,7 @@ class CaptureActivity : BaseActivity() {
         binding.btnAnalyze.isEnabled = false
 
         binding.btnArm.setOnClickListener { toggleArm() }
+        setupCaptureSource()
         restoreCaptureFields()
 
         // v17.0: range conditions. Phone sensors auto-refresh on entry
@@ -540,6 +547,133 @@ class CaptureActivity : BaseActivity() {
     }
 
     // ---- Manual record/stop (unchanged flow) ----
+
+    override fun onResume() {
+        super.onResume()
+        setupCaptureSource() // scope may have changed in Settings
+    }
+
+    // ------------- v20.23: scope Wi-Fi stream capture (EXPERIMENTAL) -------------
+    // ATN digital scopes run an RTSP service on their own Wi-Fi hotspot (TCP
+    // 554; community-verified). Connect the phone to the scope's Wi-Fi first;
+    // recording pulls the stream into a local MP4 that feeds the normal
+    // analysis pipeline. The exact stream path varies by model, so candidate
+    // paths are auto-probed and the whole handshake is logged.
+
+    private fun streamPrefs() = getSharedPreferences("vtb_capture_fields", MODE_PRIVATE)
+
+    private fun scopeSourceSelected(): Boolean =
+        binding.rowCaptureSource.visibility == android.view.View.VISIBLE &&
+            binding.spCaptureSource.selectedItemPosition == 1
+
+    private fun setupCaptureSource() {
+        val scope = com.rfsat.vtb.profiles.ProfileRepository(this).getScope()
+        if (!scope.streamCapable) {
+            binding.rowCaptureSource.visibility = android.view.View.GONE
+            binding.tvStreamStatus.visibility = android.view.View.GONE
+            return
+        }
+        binding.rowCaptureSource.visibility = android.view.View.VISIBLE
+        binding.tvStreamStatus.visibility = android.view.View.VISIBLE
+        val items = listOf("Phone camera", "${scope.name} (Wi-Fi stream)")
+        val a = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, items)
+        a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spCaptureSource.adapter = a
+        binding.spCaptureSource.setSelection(streamPrefs().getInt("capture_source", 0).coerceIn(0, 1))
+        updateStreamStatusIdle()
+        binding.spCaptureSource.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: android.widget.AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
+                streamPrefs().edit().putInt("capture_source", pos).apply()
+                binding.btnArm.isEnabled = pos == 0 // audio auto-trigger is a camera-path feature (v1)
+                updateStreamStatusIdle()
+            }
+            override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
+        }
+        binding.tvStreamStatus.setOnClickListener { if (streamRecorder == null) editStreamUrl() }
+    }
+
+    private fun streamUrl(): String =
+        streamPrefs().getString("stream_url", "rtsp://192.168.1.1:554") ?: "rtsp://192.168.1.1:554"
+
+    private fun updateStreamStatusIdle() {
+        binding.tvStreamStatus.text = if (scopeSourceSelected())
+            "Scope stream: ${streamUrl()} (connect phone Wi-Fi to the scope; tap to edit URL)"
+        else "Phone camera selected"
+    }
+
+    private fun editStreamUrl() {
+        val input = android.widget.EditText(this).apply { setText(streamUrl()) }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Scope stream URL")
+            .setMessage("Default is the ATN hotspot address. A path can be appended (e.g. /stream0); without one, common paths are probed automatically.")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                streamPrefs().edit().putString("stream_url", input.text.toString().trim()).apply()
+                updateStreamStatusIdle()
+            }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    private fun toggleStreamRecording() {
+        val active = streamRecorder
+        if (active != null) {
+            active.stop()
+            streamRecorder = null
+            releaseScopeNetwork()
+            binding.btnRecord.text = getString(com.rfsat.vtb.R.string.record)
+            val f = java.io.File(cacheDir, "scope_stream.mp4")
+            if (active.framesWritten > 0 && f.length() > 0) {
+                pendingUri = Uri.fromFile(f)
+                pendingReferenceBitmap = null
+                binding.btnAnalyze.isEnabled = true
+                Logger.i(TAG, "Scope stream saved: ${active.framesWritten} frames, ${f.length()} bytes")
+                maybeOfferScopeGeometry()
+            } else {
+                notifyUser("No video received from the scope — see the Log tab and share it; the RTSP handshake there identifies the fix. ${active.lastError ?: ""}")
+            }
+            return
+        }
+        // Start: bind to the scope's Wi-Fi network so traffic isn't routed to
+        // mobile data (the scope AP has no internet, and Android avoids such
+        // networks by default). Falls back to default routing after 5 s.
+        binding.btnRecord.text = getString(com.rfsat.vtb.R.string.stop)
+        binding.tvStreamStatus.text = "Acquiring Wi-Fi network…"
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        val req = android.net.NetworkRequest.Builder()
+            .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI).build()
+        val started = java.util.concurrent.atomic.AtomicBoolean(false)
+        fun begin(net: android.net.Network?) {
+            if (!started.compareAndSet(false, true)) return
+            scopeWifiNetwork = net
+            runOnUiThread { startStreamRecorder(net) }
+        }
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: android.net.Network) = begin(network)
+        }
+        networkCallback = cb
+        runCatching { cm.requestNetwork(req, cb) }
+            .onFailure { begin(null) }
+        binding.root.postDelayed({ begin(null) }, 5000) // no Wi-Fi callback -> try default route
+    }
+
+    private fun startStreamRecorder(net: android.net.Network?) {
+        if (net == null) Logger.w(TAG, "No Wi-Fi network callback; using default routing (stream may fail if mobile data is active)")
+        val f = java.io.File(cacheDir, "scope_stream.mp4").apply { delete() }
+        val rec = RtspStreamRecorder(streamUrl(), f, net) { msg ->
+            runOnUiThread { binding.tvStreamStatus.text = "Scope stream: $msg" }
+        }
+        streamRecorder = rec
+        Logger.i(TAG, "Scope stream recording started: ${streamUrl()}")
+        rec.start()
+    }
+
+    private fun releaseScopeNetwork() {
+        networkCallback?.let { cb ->
+            runCatching { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(cb) }
+        }
+        networkCallback = null
+        scopeWifiNetwork = null
+    }
 
     private fun toggleRecording() {
         if (isArmed) disarm() // manual record overrides an armed auto-trigger

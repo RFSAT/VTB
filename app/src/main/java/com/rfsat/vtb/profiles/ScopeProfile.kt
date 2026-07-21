@@ -27,7 +27,10 @@ data class ScopeProfile(
      *  field of view in degrees at the scope's BASE magnification. 0 = not a
      *  video scope / unknown. Lets Capture import scope-recorded clips with
      *  the right geometry (FOV@1x-equivalent = fovAtBaseDeg * zoomMin). */
-    val fovAtBaseDeg: Double = 0.0
+    val fovAtBaseDeg: Double = 0.0,
+    /** v20.23: scope streams live video over its own Wi-Fi (ATN etc.) —
+     *  enables the scope-stream capture source on the Capture tab. */
+    val streamCapable: Boolean = false
 ) {
     val clickValue: Double get() = when (clickUnit) {
         ClickUnit.MOA_QUARTER -> 0.25

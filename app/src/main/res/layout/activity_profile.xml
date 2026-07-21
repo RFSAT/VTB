@@ -33,6 +33,10 @@
 
         <TextView android:id="@+id/tvHeaderRifle" android:text="@string/rifle_profile" android:textStyle="bold" android:textSize="18sp"
             android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="8dp"/>
+        <!-- v20.22: rifle catalogue (third leg beside bullet+scope) so a full
+             equipment change never leaves a stale rifle profile behind. -->
+        <Button android:id="@+id/btnRifleCatalog" android:text="Choose from catalogue…"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="4dp"/>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="4dp">
             <Button android:id="@+id/btnRifleCsvExport" android:text="Export CSV" android:textSize="12sp"
                 android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>

@@ -31,7 +31,9 @@ object ScopeCatalog {
          *  0 for traditional optics. Verified from manufacturer specs. */
         val baseFovDeg: Double = 0.0,
         /** Digital day/night or thermal (affects the catalogue filter). */
-        val family: String = "Optical"
+        val family: String = "Optical",
+        /** Streams live video over its own Wi-Fi AP (all ATN digital models). */
+        val streamCapable: Boolean = false
     ) {
         val magClass: String get() = when {
             zoomMax <= 9.0 -> "Low (\u2264 9\u00d7)"
@@ -50,6 +52,7 @@ object ScopeCatalog {
         fun toScopeProfile(): ScopeProfile = ScopeProfile(
             name = "$brand $model",
             fovAtBaseDeg = baseFovDeg,
+            streamCapable = streamCapable,
             clickUnit = clickUnit,
             maxElevationTravelMoa = elevTravelMoa,
             maxWindageTravelMoa = windTravelMoa,
@@ -100,32 +103,32 @@ object ScopeCatalog {
         //      at 3x base, 6.3deg at 5x base; record to microSD up to 4K,
         //      WiFi streaming via ATN Connect 5, Recoil Activated Video) ----
         // X-Sight LTV: FOV 240 ft @ 5x base = 5.0deg (verified, multiple sources; 720p record)
-        Entry("ATN", "X-Sight LTV 5-15x", 5.0, 15.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 5.0, family = "Digital day/night"),
-        Entry("ATN", "X-Sight LTV 3-9x", 3.0, 9.0, 30.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 8.0, family = "Digital day/night"),
+        Entry("ATN", "X-Sight LTV 5-15x", 5.0, 15.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 5.0, family = "Digital day/night", streamCapable = true),
+        Entry("ATN", "X-Sight LTV 3-9x", 3.0, 9.0, 30.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 8.0, family = "Digital day/night", streamCapable = true),
         // X-Sight 4K Pro: FOV VERIFIED — 3-14x = 460 ft/9.0deg @3x base,
         // 5-20x = 240 ft/5.0deg @5x base (ATN site + multiple resellers).
-        Entry("ATN", "X-Sight 4K Pro 3-14x", 3.0, 14.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night"),
-        Entry("ATN", "X-Sight 4K Pro 5-20x", 5.0, 20.0, 70.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 5.0, family = "Digital day/night"),
+        Entry("ATN", "X-Sight 4K Pro 3-14x", 3.0, 14.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night", streamCapable = true),
+        Entry("ATN", "X-Sight 4K Pro 5-20x", 5.0, 20.0, 70.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 5.0, family = "Digital day/night", streamCapable = true),
         // X-Sight 4K Buckhunter: 5-20x FOV VERIFIED 240 ft/5.0deg; 3-14x
         // follows the same optics as the Pro 3-14x (9.0deg).
-        Entry("ATN", "X-Sight 4K Buckhunter 3-14x", 3.0, 14.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night"),
-        Entry("ATN", "X-Sight 4K Buckhunter 5-20x", 5.0, 20.0, 70.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 5.0, family = "Digital day/night"),
+        Entry("ATN", "X-Sight 4K Buckhunter 3-14x", 3.0, 14.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night", streamCapable = true),
+        Entry("ATN", "X-Sight 4K Buckhunter 5-20x", 5.0, 20.0, 70.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 5.0, family = "Digital day/night", streamCapable = true),
         // X-Sight II HD: 3-14x FOV VERIFIED 9.0deg (OpticsPlanet spec); 5-20x
         // pattern-derived at 5.0deg (same optics class as later 5-20x models,
         // unconfirmed) -> user should verify against the scope's own FOV.
-        Entry("ATN", "X-Sight II HD 3-14x", 3.0, 14.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night"),
-        Entry("ATN", "X-Sight II HD 5-20x", 5.0, 20.0, 70.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 5.0, family = "Digital day/night"),
-        Entry("ATN", "X-Sight 5 3-15x", 3.0, 15.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night"),
-        Entry("ATN", "X-Sight 5 5-25x", 5.0, 25.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 6.3, family = "Digital day/night"),
-        Entry("ATN", "X-Sight 5 LRF 3-15x", 3.0, 15.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night"),
-        Entry("ATN", "X-Sight 5 LRF 5-25x", 5.0, 25.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 6.3, family = "Digital day/night"),
+        Entry("ATN", "X-Sight II HD 3-14x", 3.0, 14.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night", streamCapable = true),
+        Entry("ATN", "X-Sight II HD 5-20x", 5.0, 20.0, 70.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 5.0, family = "Digital day/night", streamCapable = true),
+        Entry("ATN", "X-Sight 5 3-15x", 3.0, 15.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night", streamCapable = true),
+        Entry("ATN", "X-Sight 5 5-25x", 5.0, 25.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 6.3, family = "Digital day/night", streamCapable = true),
+        Entry("ATN", "X-Sight 5 LRF 3-15x", 3.0, 15.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night", streamCapable = true),
+        Entry("ATN", "X-Sight 5 LRF 5-25x", 5.0, 25.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 6.3, family = "Digital day/night", streamCapable = true),
         // ---- ATN thermal (ThOR 5; FOV verified for the 640 2-16x25 (17.6deg)
         //      and 640 5-40x75 (5.9deg); 320-sensor FOVs unverified -> 0) ----
-        Entry("ATN", "ThOR 5 320 3-12x", 3.0, 12.0, 35.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 0.0, family = "Thermal"),
-        Entry("ATN", "ThOR 5 LRF 320 5-20x", 5.0, 20.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 0.0, family = "Thermal"),
-        Entry("ATN", "ThOR 5 640 2-16x", 2.0, 16.0, 25.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 17.6, family = "Thermal"),
-        Entry("ATN", "ThOR 5 LRF 640 2-16x", 2.0, 16.0, 25.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 17.6, family = "Thermal"),
-        Entry("ATN", "ThOR 5 640 5-40x", 5.0, 40.0, 75.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 120.0, 2.2, baseFovDeg = 5.9, family = "Thermal")
+        Entry("ATN", "ThOR 5 320 3-12x", 3.0, 12.0, 35.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 0.0, family = "Thermal", streamCapable = true),
+        Entry("ATN", "ThOR 5 LRF 320 5-20x", 5.0, 20.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 0.0, family = "Thermal", streamCapable = true),
+        Entry("ATN", "ThOR 5 640 2-16x", 2.0, 16.0, 25.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 17.6, family = "Thermal", streamCapable = true),
+        Entry("ATN", "ThOR 5 LRF 640 2-16x", 2.0, 16.0, 25.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 17.6, family = "Thermal", streamCapable = true),
+        Entry("ATN", "ThOR 5 640 5-40x", 5.0, 40.0, 75.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 120.0, 2.2, baseFovDeg = 5.9, family = "Thermal", streamCapable = true)
     )
 
     const val ALL = "All"

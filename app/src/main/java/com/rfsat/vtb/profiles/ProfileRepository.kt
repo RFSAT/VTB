@@ -100,6 +100,48 @@ class ProfileRepository(context: Context) {
     }
 
     /** Insert or replace by name. */
+    /**
+     * v20.22: seed ready-made profile sets on first run (once; deleting them
+     * later does not resurrect them). Built from the catalogues so the data
+     * matches what a manual catalogue pick would produce. The user's actual
+     * equipment combinations ship as the defaults.
+     */
+    fun seedDefaultSetsIfEmpty() {
+        if (prefs.getBoolean(KEY_SETS_SEEDED, false) || getSets().isNotEmpty()) return
+        fun scope(name: String) = ScopeCatalog.entries
+            .firstOrNull { "${it.brand} ${it.model}" == name }?.toScopeProfile()
+        fun bullet(mfr: String, product: String) = AmmoCatalog.entries
+            .firstOrNull { it.manufacturer == mfr && it.product == product }?.toBulletProfile()
+        fun rifle(name: String, zeroM: Double? = null) = RifleCatalog.entries
+            .firstOrNull { "${it.brand} ${it.model}" == name }?.toRifleProfile()
+            ?.let { if (zeroM != null) it.copy(zeroDistanceM = zeroM) else it }
+
+        val seeds = listOfNotNull(
+            ProfileSet(
+                name = ".22LR — Ruger + Continental",
+                rifle = rifle("Ruger Precision Rimfire .22LR", zeroM = 200.0) ?: return,
+                bullet = bullet("CCI", "Standard Velocity") ?: return,
+                scope = scope("Vector Optics Continental 5-30x56") ?: return
+            ),
+            ProfileSet(
+                name = "AEA Element — X-Sight LTV",
+                rifle = rifle("AEA Element .22") ?: return,
+                bullet = bullet("AEA", "Element .22 RN 16gr") ?: return,
+                scope = scope("ATN X-Sight LTV 5-15x") ?: return
+            ),
+            ProfileSet(
+                name = "AEA Element — X-Sight 5 LRF",
+                rifle = rifle("AEA Element .22") ?: return,
+                bullet = bullet("AEA", "Element .22 RN 16gr") ?: return,
+                scope = scope("ATN X-Sight 5 LRF 5-25x") ?: return
+            )
+        )
+        prefs.edit()
+            .putString(KEY_SETS, gson.toJson(seeds))
+            .putBoolean(KEY_SETS_SEEDED, true)
+            .apply()
+    }
+
     fun saveSet(set: ProfileSet) {
         val updated = getSets().filter { it.name != set.name } + set
         prefs.edit().putString(KEY_SETS, gson.toJson(updated)).apply()
@@ -123,6 +165,7 @@ class ProfileRepository(context: Context) {
         private const val KEY_SCOPE = "scope_profile"
         private const val KEY_SETS = "profile_sets"
         private const val KEY_ACTIVE_SET = "active_set_name"
+        private const val KEY_SETS_SEEDED = "sets_seeded"
     }
 }
 

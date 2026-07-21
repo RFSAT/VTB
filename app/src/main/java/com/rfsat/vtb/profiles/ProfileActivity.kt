@@ -24,16 +24,19 @@ class ProfileActivity : BaseActivity() {
             this, android.R.layout.simple_spinner_dropdown_item,
             arrayOf("1/4 MOA per click", "1/8 MOA per click", "0.1 MRAD per click")
         )
+        // v20.22: the preset pull-down now feeds from the FULL scope
+        // catalogue (all brands incl. ATN) + "Custom" — one list, one truth.
+        // The legacy 4-entry PRESETS list confused users who couldn't find
+        // their scopes here while the catalogue dialog had them.
+        val scopePresetNames = ScopeCatalog.entries.map { "${it.brand} ${it.model}" } + "Custom (edit fields)"
         binding.spinnerScopePreset.adapter = ArrayAdapter(
-            this, android.R.layout.simple_spinner_dropdown_item,
-            ScopeProfile.PRESETS.map { it.name }
+            this, android.R.layout.simple_spinner_dropdown_item, scopePresetNames
         )
         binding.spinnerScopePreset.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (suppressPresetCallback) { suppressPresetCallback = false; return }
-                val preset = ScopeProfile.PRESETS[position]
-                if (preset.name.startsWith("Custom")) return // leave fields as user typed them
-                fillScopeFields(preset)
+                val entry = ScopeCatalog.entries.getOrNull(position) ?: return // Custom -> leave fields
+                applyImportedScope(entry.toScopeProfile())
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -63,6 +66,7 @@ class ProfileActivity : BaseActivity() {
         setupDisplaySpinners()
         binding.btnAmmoCatalog.setOnClickListener { showAmmoCatalog() }
         binding.btnScopeCatalog.setOnClickListener { showScopeCatalog() }
+        binding.btnRifleCatalog.setOnClickListener { showRifleCatalog() }
         binding.cbTracer.setOnCheckedChangeListener { _, on -> if (on) binding.cbPellet.isChecked = false }
         binding.cbPellet.setOnCheckedChangeListener { _, on -> if (on) binding.cbTracer.isChecked = false }
         binding.btnChronograph.setOnClickListener { showChronograph() }
@@ -85,6 +89,7 @@ class ProfileActivity : BaseActivity() {
         binding.btnSaveSet.setOnClickListener { promptSaveSet() }
         binding.btnLoadSet.setOnClickListener { loadSelectedSet() }
         binding.btnDeleteSet.setOnClickListener { deleteSelectedSet() }
+        repo.seedDefaultSetsIfEmpty() // v20.22: user's rigs as ready-made sets
         refreshSetSpinner()
     }
 
@@ -174,6 +179,39 @@ class ProfileActivity : BaseActivity() {
         lv.setOnItemClickListener { _, _, pos, _ ->
             val b = current.getOrNull(pos) ?: return@setOnItemClickListener
             applyCatalogEntry(b.toBulletProfile())
+            dlg.dismiss()
+        }
+        dlg.show()
+    }
+
+    private fun showRifleCatalog() {
+        val v = layoutInflater.inflate(com.rfsat.vtb.R.layout.dialog_rifle_catalog, null)
+        val spBrand = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spRifBrand)
+        val spType = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spRifType)
+        val tvCount = v.findViewById<android.widget.TextView>(com.rfsat.vtb.R.id.tvRifCount)
+        val lv = v.findViewById<android.widget.ListView>(com.rfsat.vtb.R.id.lvRifResults)
+        fun spinner(sp: android.widget.Spinner, items: List<String>) {
+            val a = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, items)
+            a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            sp.adapter = a
+        }
+        spinner(spBrand, RifleCatalog.brands()); spinner(spType, RifleCatalog.types())
+        var current: List<RifleCatalog.Entry> = emptyList()
+        fun refresh() {
+            current = RifleCatalog.filter(spBrand.selectedItem as String, spType.selectedItem as String)
+            tvCount.text = "${current.size} of ${RifleCatalog.entries.size} rifles"
+            lv.adapter = android.widget.ArrayAdapter(this, android.R.layout.simple_list_item_1, current.map { it.label() })
+        }
+        val onSel = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: android.widget.AdapterView<*>?, w: android.view.View?, pos: Int, id: Long) = refresh()
+            override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
+        }
+        listOf(spBrand, spType).forEach { it.onItemSelectedListener = onSel }
+        refresh()
+        val dlg = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Rifle catalogue").setView(v).setNegativeButton("Cancel", null).create()
+        lv.setOnItemClickListener { _, _, pos, _ ->
+            current.getOrNull(pos)?.let { applyImportedRifle(it.toRifleProfile()) }
             dlg.dismiss()
         }
         dlg.show()
@@ -682,10 +720,10 @@ class ProfileActivity : BaseActivity() {
             cbTracer.isChecked = bullet.isTracer
             cbPellet.isChecked = bullet.isPellet
 
-            // Select the matching preset (or Custom) without clobbering fields.
+            // Select the matching catalogue entry (or Custom, the last item).
             suppressPresetCallback = true
-            val presetIdx = ScopeProfile.PRESETS.indexOfFirst { it.name == scope.name }
-            spinnerScopePreset.setSelection(if (presetIdx >= 0) presetIdx else ScopeProfile.PRESETS.size - 1)
+            val presetIdx = ScopeCatalog.entries.indexOfFirst { "${it.brand} ${it.model}" == scope.name }
+            spinnerScopePreset.setSelection(if (presetIdx >= 0) presetIdx else ScopeCatalog.entries.size)
         }
         fillScopeFields(scope)
     }

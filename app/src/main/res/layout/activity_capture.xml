@@ -140,6 +140,22 @@
             android:inputType="numberDecimal" android:layout_width="match_parent" android:layout_height="wrap_content"/>
     </LinearLayout>
 
+    <!-- v20.23: capture source — visible only when the active scope streams
+         over its own Wi-Fi (ATN). Tap the status line to edit the stream URL. -->
+    <LinearLayout android:id="@+id/rowCaptureSource" android:visibility="gone"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:paddingLeft="8dp" android:paddingRight="8dp">
+        <TextView android:text="Source" android:textSize="12sp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:paddingRight="8dp"/>
+        <Spinner android:id="@+id/spCaptureSource"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+    </LinearLayout>
+    <TextView android:id="@+id/tvStreamStatus" android:visibility="gone"
+        android:textSize="11sp" android:paddingLeft="8dp" android:paddingRight="8dp"
+        android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

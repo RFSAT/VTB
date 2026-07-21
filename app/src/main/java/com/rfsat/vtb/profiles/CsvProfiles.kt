@@ -102,13 +102,13 @@ object CsvProfiles {
     // ---- Scope ----
 
     val SCOPE_HEADER = listOf("name","clickUnit","maxElevationTravelMoa","maxWindageTravelMoa",
-        "zoomMin","zoomMax","objectiveDiameterMm","focalLengthMm","heightAboveBarrelIn","fovAtBaseDeg")
+        "zoomMin","zoomMax","objectiveDiameterMm","focalLengthMm","heightAboveBarrelIn","fovAtBaseDeg","streamCapable")
 
     fun scopesToCsv(list: List<ScopeProfile>): String =
         (listOf(joinRow(SCOPE_HEADER)) + list.map { s -> joinRow(listOf(
             s.name, s.clickUnit.name, s.maxElevationTravelMoa.toString(), s.maxWindageTravelMoa.toString(),
             s.zoomMin.toString(), s.zoomMax.toString(), s.objectiveDiameterMm.toString(),
-            s.focalLengthMm.toString(), s.heightAboveBarrelIn.toString(), s.fovAtBaseDeg.toString()
+            s.focalLengthMm.toString(), s.heightAboveBarrelIn.toString(), s.fovAtBaseDeg.toString(), s.streamCapable.toString()
         )) }).joinToString("\n") + "\n"
 
     fun scopesFromCsv(text: String): List<ScopeProfile> =
@@ -122,6 +122,7 @@ object CsvProfiles {
             objectiveDiameterMm = r.d(6, ScopeProfile.DEFAULT.objectiveDiameterMm),
             focalLengthMm = r.d(7, ScopeProfile.DEFAULT.focalLengthMm),
             heightAboveBarrelIn = r.d(8, ScopeProfile.DEFAULT.heightAboveBarrelIn),
-            fovAtBaseDeg = r.d(9, 0.0)
+            fovAtBaseDeg = r.d(9, 0.0),
+            streamCapable = r.b(10, false)
         ) }
 }

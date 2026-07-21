@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- v20.23: scope Wi-Fi stream capture (RTSP to the scope's hotspot) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-feature android:name="android.hardware.camera.any" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
@@ -29,7 +33,7 @@
 
         <activity
             android:name=".ui.MainActivity"
-            android:label="VTB 20.21"
+            android:label="VTB 20.23"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
