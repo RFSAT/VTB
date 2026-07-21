@@ -26,7 +26,12 @@ object ScopeCatalog {
         val elevTravelMoa: Double,
         val windTravelMoa: Double,
         val focalLengthMm: Double,
-        val heightAboveBarrelIn: Double = 1.5
+        val heightAboveBarrelIn: Double = 1.5,
+        /** Optical FOV (deg) at zoomMin for video-recording digital scopes;
+         *  0 for traditional optics. Verified from manufacturer specs. */
+        val baseFovDeg: Double = 0.0,
+        /** Digital day/night or thermal (affects the catalogue filter). */
+        val family: String = "Optical"
     ) {
         val magClass: String get() = when {
             zoomMax <= 9.0 -> "Low (\u2264 9\u00d7)"
@@ -44,6 +49,7 @@ object ScopeCatalog {
 
         fun toScopeProfile(): ScopeProfile = ScopeProfile(
             name = "$brand $model",
+            fovAtBaseDeg = baseFovDeg,
             clickUnit = clickUnit,
             maxElevationTravelMoa = elevTravelMoa,
             maxWindageTravelMoa = windTravelMoa,
@@ -89,19 +95,35 @@ object ScopeCatalog {
         Entry("Bushnell", "Engage 4-16x44", 4.0, 16.0, 44.0, ClickUnit.MOA_QUARTER, 70.0, 70.0, 95.0, 1.6),
         // ---- Nightforce (bonus common brand) ----
         Entry("Nightforce", "ATACR 5-25x56", 5.0, 25.0, 56.0, ClickUnit.MRAD_TENTH, mrad(27.0), mrad(14.0), 112.0, 1.97),
-        Entry("Nightforce", "NX8 4-32x50", 4.0, 32.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(20.0), 100.0, 1.9)
+        Entry("Nightforce", "NX8 4-32x50", 4.0, 32.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(20.0), 100.0, 1.9),
+        // ---- ATN digital day/night (X-Sight 5 family; FOV verified: 9.0deg
+        //      at 3x base, 6.3deg at 5x base; record to microSD up to 4K,
+        //      WiFi streaming via ATN Connect 5, Recoil Activated Video) ----
+        Entry("ATN", "X-Sight 5 3-15x", 3.0, 15.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night"),
+        Entry("ATN", "X-Sight 5 5-25x", 5.0, 25.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 6.3, family = "Digital day/night"),
+        Entry("ATN", "X-Sight 5 LRF 3-15x", 3.0, 15.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night"),
+        Entry("ATN", "X-Sight 5 LRF 5-25x", 5.0, 25.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 110.0, 2.2, baseFovDeg = 6.3, family = "Digital day/night"),
+        // ---- ATN thermal (ThOR 5; FOV verified for the 640 2-16x25 (17.6deg)
+        //      and 640 5-40x75 (5.9deg); 320-sensor FOVs unverified -> 0) ----
+        Entry("ATN", "ThOR 5 320 3-12x", 3.0, 12.0, 35.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 0.0, family = "Thermal"),
+        Entry("ATN", "ThOR 5 LRF 320 5-20x", 5.0, 20.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 0.0, family = "Thermal"),
+        Entry("ATN", "ThOR 5 640 2-16x", 2.0, 16.0, 25.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 17.6, family = "Thermal"),
+        Entry("ATN", "ThOR 5 LRF 640 2-16x", 2.0, 16.0, 25.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 17.6, family = "Thermal"),
+        Entry("ATN", "ThOR 5 640 5-40x", 5.0, 40.0, 75.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 120.0, 2.2, baseFovDeg = 5.9, family = "Thermal")
     )
 
     const val ALL = "All"
 
     fun brands(): List<String> = listOf(ALL) + entries.map { it.brand }.distinct().sorted()
+    fun families(): List<String> = listOf(ALL) + entries.map { it.family }.distinct()
     fun clickUnits(): List<String> = listOf(ALL, "0.1 MRAD", "1/4 MOA", "1/8 MOA")
     fun magClasses(): List<String> = listOf(ALL, "Low (\u2264 9\u00d7)", "Mid (10\u201320\u00d7)", "High (> 20\u00d7)")
 
-    fun filter(brand: String, click: String, mag: String): List<Entry> =
+    fun filter(brand: String, click: String, mag: String, family: String = ALL): List<Entry> =
         entries.filter {
             (brand == ALL || it.brand == brand) &&
             (click == ALL || it.clickLabel == click) &&
-            (mag == ALL || it.magClass == mag)
+            (mag == ALL || it.magClass == mag) &&
+            (family == ALL || it.family == family)
         }
 }

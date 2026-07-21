@@ -21,6 +21,9 @@ data class BulletProfile(
      *  BC as approximate and lean on dragCalibrationFactor if drop data
      *  disagrees. */
     val isTracer: Boolean = false,
+    /** v20.18: airgun projectile — analysis tracks the pellet/slug itself
+     *  (a compact luminance-contrast point) instead of a vapor trail. */
+    val isPellet: Boolean = false,
     /** v20.1: rimfire/centerfire powder is temperature-sensitive — MV shifts
      *  roughly 0.5-1 m/s per degC for .22LR. With the Kestrel supplying real
      *  temperature, the analysis can correct for it: effective MV =

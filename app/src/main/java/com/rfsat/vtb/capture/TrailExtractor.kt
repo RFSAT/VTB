@@ -52,7 +52,14 @@ object TrailExtractor {
      *   centroid weighting so the compact saturated point dominates over
      *   any residual diffuse smoke it also produces.
      */
-    enum class Mode { VAPOR, TRACER }
+    enum class Mode {
+        VAPOR,   // wind-driven drift of the vapor/turbulence trail
+        TRACER,  // burning tracer element tracked in flight (red + bright)
+        PELLET   // v20.18: airgun pellet/slug tracked in flight — a compact
+                 // luminance-CONTRAST point (dark or bright vs background;
+                 // in thermal footage a friction-heated slug reads bright).
+                 // Same point-tracking geometry as TRACER, no red channel.
+    }
 
     data class ExtractionResult(
         val observations: List<PixelObservation>,
@@ -268,20 +275,25 @@ object TrailExtractor {
                 val rowOff = y * w
                 for (x in x0..x1) {
                     val idx = rowOff + x
-                    val score = if (mode == Mode.TRACER) {
-                        // Positive brightness rise + red-dominance rise:
-                        // the burning element, not shadows or smoke.
-                        (lum[idx] - refLum[idx]).coerceAtLeast(0.0) +
-                            RED_WEIGHT * (red!![idx] - refRed!![idx]).coerceAtLeast(0.0)
-                    } else {
-                        abs(lum[idx] - refLum[idx]) +
-                            GRADIENT_WEIGHT * abs(grad[idx] - refGrad[idx])
+                    val score = when (mode) {
+                        Mode.TRACER ->
+                            // Positive brightness rise + red-dominance rise:
+                            // the burning element, not shadows or smoke.
+                            (lum[idx] - refLum[idx]).coerceAtLeast(0.0) +
+                                RED_WEIGHT * (red!![idx] - refRed!![idx]).coerceAtLeast(0.0)
+                        Mode.PELLET ->
+                            // Absolute contrast: a pellet may be darker OR
+                            // brighter than the background (thermal: bright).
+                            abs(lum[idx] - refLum[idx])
+                        Mode.VAPOR ->
+                            abs(lum[idx] - refLum[idx]) +
+                                GRADIENT_WEIGHT * abs(grad[idx] - refGrad[idx])
                     }
                     if (score > threshold) {
                         // Squared weighting in tracer mode: the compact
                         // saturated point must dominate the centroid over
                         // any co-detected smoke haze.
-                        val wgt = if (mode == Mode.TRACER) score * score else score
+                        val wgt = if (mode != Mode.VAPOR) score * score else score
                         sumW += wgt; sumWx += wgt * x; sumWy += wgt * y
                     }
                 }
@@ -290,7 +302,7 @@ object TrailExtractor {
                 val px = sumWx / sumW
                 val py = sumWy / sumW
                 lastX = px; lastY = py
-                val confNorm = if (mode == Mode.TRACER) 255.0 * 255.0 else 500.0
+                val confNorm = if (mode != Mode.VAPOR) 255.0 * 255.0 else 500.0
                 val confidence = (sumW / (confNorm * (x1 - x0 + 1) * (y1 - y0 + 1))).coerceIn(0.0, 1.0)
                 results.add(PixelObservation(tS - shotBreakOffsetS, px, py, confidence))
             }

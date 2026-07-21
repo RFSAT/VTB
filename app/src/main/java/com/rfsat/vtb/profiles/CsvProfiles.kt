@@ -52,14 +52,14 @@ object CsvProfiles {
     // ---- Bullet ----
 
     val BULLET_HEADER = listOf("name","caliberDiameterIn","weightGrains","muzzleVelocityFps",
-        "ballisticCoefficientG1","dragCalibrationFactor","isTracer","mvTempCoeffMpsPerC","mvRefTempC")
+        "ballisticCoefficientG1","dragCalibrationFactor","isTracer","mvTempCoeffMpsPerC","mvRefTempC","isPellet")
 
     fun bulletsToCsv(list: List<BulletProfile>): String =
         (listOf(joinRow(BULLET_HEADER)) + list.map { b -> joinRow(listOf(
             b.name, b.caliberDiameterIn.toString(), b.weightGrains.toString(),
             b.muzzleVelocityFps.toString(), b.ballisticCoefficientG1.toString(),
             b.dragCalibrationFactor.toString(), b.isTracer.toString(),
-            b.mvTempCoeffMpsPerC.toString(), b.mvRefTempC.toString()
+            b.mvTempCoeffMpsPerC.toString(), b.mvRefTempC.toString(), b.isPellet.toString()
         )) }).joinToString("\n") + "\n"
 
     fun bulletsFromCsv(text: String): List<BulletProfile> =
@@ -72,7 +72,8 @@ object CsvProfiles {
             dragCalibrationFactor = r.d(5, 1.0),
             isTracer = r.b(6, false),
             mvTempCoeffMpsPerC = r.d(7, 0.0),
-            mvRefTempC = r.d(8, 15.0)
+            mvRefTempC = r.d(8, 15.0),
+            isPellet = r.b(9, false)
         ) }
 
     // ---- Rifle ----
@@ -101,13 +102,13 @@ object CsvProfiles {
     // ---- Scope ----
 
     val SCOPE_HEADER = listOf("name","clickUnit","maxElevationTravelMoa","maxWindageTravelMoa",
-        "zoomMin","zoomMax","objectiveDiameterMm","focalLengthMm","heightAboveBarrelIn")
+        "zoomMin","zoomMax","objectiveDiameterMm","focalLengthMm","heightAboveBarrelIn","fovAtBaseDeg")
 
     fun scopesToCsv(list: List<ScopeProfile>): String =
         (listOf(joinRow(SCOPE_HEADER)) + list.map { s -> joinRow(listOf(
             s.name, s.clickUnit.name, s.maxElevationTravelMoa.toString(), s.maxWindageTravelMoa.toString(),
             s.zoomMin.toString(), s.zoomMax.toString(), s.objectiveDiameterMm.toString(),
-            s.focalLengthMm.toString(), s.heightAboveBarrelIn.toString()
+            s.focalLengthMm.toString(), s.heightAboveBarrelIn.toString(), s.fovAtBaseDeg.toString()
         )) }).joinToString("\n") + "\n"
 
     fun scopesFromCsv(text: String): List<ScopeProfile> =
@@ -120,6 +121,7 @@ object CsvProfiles {
             zoomMax = r.d(5, ScopeProfile.DEFAULT.zoomMax),
             objectiveDiameterMm = r.d(6, ScopeProfile.DEFAULT.objectiveDiameterMm),
             focalLengthMm = r.d(7, ScopeProfile.DEFAULT.focalLengthMm),
-            heightAboveBarrelIn = r.d(8, ScopeProfile.DEFAULT.heightAboveBarrelIn)
+            heightAboveBarrelIn = r.d(8, ScopeProfile.DEFAULT.heightAboveBarrelIn),
+            fovAtBaseDeg = r.d(9, 0.0)
         ) }
 }

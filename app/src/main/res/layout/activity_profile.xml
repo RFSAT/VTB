@@ -124,6 +124,10 @@
             android:text="Tracer round (track bullet, not vapor trail)"
             android:textSize="14sp"
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <CheckBox android:id="@+id/cbPellet"
+            android:text="Airgun pellet/slug (track the projectile in flight)"
+            android:textSize="14sp"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
 
         <!-- Drop calibration (v15.0): the engine's Cd(M) curve is a
              physically-reasonable approximation, not a certified G1 table,

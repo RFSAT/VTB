@@ -22,7 +22,12 @@ data class ScopeProfile(
     val focalLengthMm: Double = 112.0,
     /** Scope optical centerline height above the bore axis (inches) — this is
      *  the value the ballistic solver actually uses for the sight-height offset. */
-    val heightAboveBarrelIn: Double = 1.97
+    val heightAboveBarrelIn: Double = 1.97,
+    /** v20.18: for DIGITAL scopes that record video (ATN etc.): the optical
+     *  field of view in degrees at the scope's BASE magnification. 0 = not a
+     *  video scope / unknown. Lets Capture import scope-recorded clips with
+     *  the right geometry (FOV@1x-equivalent = fovAtBaseDeg * zoomMin). */
+    val fovAtBaseDeg: Double = 0.0
 ) {
     val clickValue: Double get() = when (clickUnit) {
         ClickUnit.MOA_QUARTER -> 0.25

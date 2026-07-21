@@ -100,8 +100,45 @@ class CaptureActivity : BaseActivity() {
             pendingReferenceBitmap = null // imported clips use TrailExtractor's internal reference-frame lookup
             binding.btnAnalyze.isEnabled = true
             Logger.i(TAG, "Imported video: $uri")
-            notifyUser("Video imported — ready to analyze. Note: clips recorded with stabilization ON can bias wind estimates.")
+            maybeOfferScopeGeometry()
         }
+    }
+
+    /**
+     * v20.18: clips recorded BY a digital scope (ATN X-Sight/ThOR etc.) have
+     * the SCOPE's field of view, not the phone camera's. If the active scope
+     * profile declares its base-magnification FOV, offer to apply it: the
+     * FOV field becomes the 1x-equivalent (fovAtBase * zoomMin) and the Zoom
+     * field the magnification used while recording, so analysis geometry
+     * (FOV / zoom) is exactly the scope's true field of view.
+     */
+    private fun maybeOfferScopeGeometry() {
+        val scope = com.rfsat.vtb.profiles.ProfileRepository(this).getScope()
+        if (scope.fovAtBaseDeg <= 0.0) {
+            notifyUser("Video imported — ready to analyze. Note: clips recorded with stabilization ON can bias wind estimates.")
+            return
+        }
+        val input = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            hint = "Magnification during recording"
+            setText(scope.zoomMin.toString())
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Video source")
+            .setMessage("Was this clip recorded by “${scope.name}”? If so, enter the magnification used and the analysis geometry is set from the scope's optics.")
+            .setView(input)
+            .setPositiveButton("From scope") { _, _ ->
+                val z = input.text.toString().toDoubleOrNull()?.coerceIn(scope.zoomMin, scope.zoomMax) ?: scope.zoomMin
+                val fovAt1x = scope.fovAtBaseDeg * scope.zoomMin
+                binding.etFov.setText(String.format("%.2f", fovAt1x))
+                binding.etZoom.setText(String.format("%.1f", z))
+                Logger.i(TAG, "Scope-source import: ${scope.name} fovBase=${scope.fovAtBaseDeg}° zoom=$z -> fov@1x=${"%.2f".format(fovAt1x)}°")
+                notifyUser("Scope geometry applied (${scope.name}, ${z}×). Ready to analyze.")
+            }
+            .setNegativeButton("Phone camera") { _, _ ->
+                notifyUser("Video imported — ready to analyze. Note: clips recorded with stabilization ON can bias wind estimates.")
+            }
+            .show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -726,6 +763,10 @@ class CaptureActivity : BaseActivity() {
                 )
                 val settleS = tofS * 1.2
                 val tracer = bullet.isTracer
+                // v20.18: a tracked pellet is geometrically the same problem
+                // as a tracked tracer point (lag rule), just without the red
+                // signature — it shares the tracer estimator path.
+                val pointTracked = tracer || bullet.isPellet
                 // Tracking window differs fundamentally by mode:
                 //  VAPOR — the wind signal is the trail's drift AFTER the
                 //    bullet has passed, so track settle + DRIFT_OBSERVATION_S.
@@ -740,7 +781,11 @@ class CaptureActivity : BaseActivity() {
                     localFile.absolutePath, shotBreakOffsetS,
                     clipDurationAfterShotS = trackWindowS,
                     externalReferenceBitmap = referenceBitmap,
-                    mode = if (tracer) TrailExtractor.Mode.TRACER else TrailExtractor.Mode.VAPOR
+                    mode = when {
+                        tracer -> TrailExtractor.Mode.TRACER
+                        bullet.isPellet -> TrailExtractor.Mode.PELLET
+                        else -> TrailExtractor.Mode.VAPOR
+                    }
                 )
                 localFile.delete()
                 val observations = extraction.observations
@@ -769,7 +814,7 @@ class CaptureActivity : BaseActivity() {
                     boresightPixelY = boresightYNorm * frameHeightPx
                 )
 
-                val rawSamples = if (tracer) {
+                val rawSamples = if (pointTracked) {
                     com.rfsat.vtb.wind.TracerWindEstimator.estimate(
                         calibration, observations, bullet, atmosphere,
                         zeroDistanceM = activeRifle.zeroDistanceM,

@@ -63,6 +63,8 @@ class ProfileActivity : BaseActivity() {
         setupDisplaySpinners()
         binding.btnAmmoCatalog.setOnClickListener { showAmmoCatalog() }
         binding.btnScopeCatalog.setOnClickListener { showScopeCatalog() }
+        binding.cbTracer.setOnCheckedChangeListener { _, on -> if (on) binding.cbPellet.isChecked = false }
+        binding.cbPellet.setOnCheckedChangeListener { _, on -> if (on) binding.cbTracer.isChecked = false }
         binding.btnChronograph.setOnClickListener { showChronograph() }
         binding.btnBulletCsvExport.setOnClickListener { csvKind = CsvKind.BULLET; csvCreate.launch("vtb_bullets.csv") }
         binding.btnBulletCsvImport.setOnClickListener { csvKind = CsvKind.BULLET; csvOpen.launch(arrayOf("*/*")) }
@@ -182,6 +184,7 @@ class ProfileActivity : BaseActivity() {
         val spBrand = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spScBrand)
         val spClick = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spScClick)
         val spMag = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spScMag)
+        val spFamily = v.findViewById<android.widget.Spinner>(com.rfsat.vtb.R.id.spScFamily)
         val tvCount = v.findViewById<android.widget.TextView>(com.rfsat.vtb.R.id.tvScCount)
         val lv = v.findViewById<android.widget.ListView>(com.rfsat.vtb.R.id.lvScResults)
 
@@ -193,11 +196,13 @@ class ProfileActivity : BaseActivity() {
         spinner(spBrand, ScopeCatalog.brands())
         spinner(spClick, ScopeCatalog.clickUnits())
         spinner(spMag, ScopeCatalog.magClasses())
+        spinner(spFamily, ScopeCatalog.families())
 
         var current: List<ScopeCatalog.Entry> = emptyList()
         fun refresh() {
             current = ScopeCatalog.filter(
-                spBrand.selectedItem as String, spClick.selectedItem as String, spMag.selectedItem as String)
+                spBrand.selectedItem as String, spClick.selectedItem as String,
+                spMag.selectedItem as String, spFamily.selectedItem as String)
             tvCount.text = "${current.size} of ${ScopeCatalog.entries.size} scopes"
             lv.adapter = android.widget.ArrayAdapter(
                 this, android.R.layout.simple_list_item_1, current.map { it.label() })
@@ -206,7 +211,7 @@ class ProfileActivity : BaseActivity() {
             override fun onItemSelected(p: android.widget.AdapterView<*>?, w: android.view.View?, pos: Int, id: Long) = refresh()
             override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
         }
-        listOf(spBrand, spClick, spMag).forEach { it.onItemSelectedListener = onSel }
+        listOf(spBrand, spClick, spMag, spFamily).forEach { it.onItemSelectedListener = onSel }
         refresh()
 
         val dlg = androidx.appcompat.app.AlertDialog.Builder(this)
@@ -233,6 +238,7 @@ class ProfileActivity : BaseActivity() {
             etMvTempCoeff.setText("0.0")
             etMvRefTemp.setText("15.0")
             cbTracer.isChecked = false
+            cbPellet.isChecked = b.isPellet
         }
         pendingBulletBase = repo.getBullet().copy(dragCalibrationFactor = 1.0)
         notifyUser("Catalogue values loaded — review and Save (drag factor resets to 1.0; re-run drop calibration for the new load).")
@@ -339,6 +345,7 @@ class ProfileActivity : BaseActivity() {
             etMvTempCoeff.setText(b.mvTempCoeffMpsPerC.toString())
             etMvRefTemp.setText(b.mvRefTempC.toString())
             cbTracer.isChecked = b.isTracer
+            cbPellet.isChecked = b.isPellet
         }
         pendingBulletBase = b // carries the imported drag calibration factor
         notifyUser("Bullet “${b.name}” loaded (drag factor %.3f) — review and Save.".format(b.dragCalibrationFactor))
@@ -673,6 +680,7 @@ class ProfileActivity : BaseActivity() {
             etMvRefTemp.setText(bullet.mvRefTempC.toString())
             etBallisticCoefficient.setText(bullet.ballisticCoefficientG1.toString())
             cbTracer.isChecked = bullet.isTracer
+            cbPellet.isChecked = bullet.isPellet
 
             // Select the matching preset (or Custom) without clobbering fields.
             suppressPresetCallback = true
@@ -709,7 +717,8 @@ class ProfileActivity : BaseActivity() {
                 mvTempCoeffMpsPerC = etMvTempCoeff.text.toString().toDoubleOrNull() ?: 0.0,
                 mvRefTempC = etMvRefTemp.text.toString().toDoubleOrNull() ?: 15.0,
                 ballisticCoefficientG1 = etBallisticCoefficient.text.toString().toDoubleOrNull() ?: BulletProfile.DEFAULT.ballisticCoefficientG1,
-                isTracer = cbTracer.isChecked
+                isTracer = cbTracer.isChecked,
+                isPellet = binding.cbPellet.isChecked
             )
         )
         val unit = when (spinnerClickUnit.selectedItemPosition) {

@@ -26,7 +26,8 @@ object AmmoCatalog {
         val weightGr: Double,
         val mvFps: Double,
         val bcG1: Double,
-        val type: String              // RN, HP, FMJ, SP, Match
+        val type: String,             // RN, HP, FMJ, SP, Match, Pellet, Slug
+        val pellet: Boolean = false   // airgun projectile -> PELLET tracking
     ) {
         val subsonic: Boolean get() = mvFps < SUBSONIC_LIMIT_FPS
         val velocityClass: String get() = if (subsonic) "Subsonic" else "Supersonic"
@@ -40,6 +41,7 @@ object AmmoCatalog {
             ballisticCoefficientG1 = bcG1,
             dragCalibrationFactor = 1.0,
             isTracer = false,
+            isPellet = pellet,
             mvTempCoeffMpsPerC = 0.0,
             mvRefTempC = 15.0
         )
@@ -98,6 +100,20 @@ object AmmoCatalog {
         // ---- 6.5 Creedmoor ----
         Entry("Hornady", "ELD Match", "6.5 CM", D264, 140.0, 2710.0, 0.646, "Match"),
         Entry("Federal", "American Eagle OTM", "6.5 CM", D264, 140.0, 2700.0, 0.580, "Match"),
+        // ---- Airgun pellets (diabolo; JSB-published G1 BCs) ----
+        Entry("JSB", "Exact Jumbo", ".22 pellet", 0.2165, 15.89, 950.0, 0.033, "Pellet", pellet = true),
+        Entry("JSB", "Exact Jumbo Heavy", ".22 pellet", 0.2165, 18.13, 1000.0, 0.036, "Pellet", pellet = true),
+        Entry("JSB", "Exact King", ".25 pellet", 0.250, 25.39, 950.0, 0.041, "Pellet", pellet = true),
+        Entry("JSB", "Exact King Heavy", ".25 pellet", 0.250, 33.95, 900.0, 0.048, "Pellet", pellet = true),
+        Entry("JSB", "Exact .30", ".30 pellet", 0.300, 44.75, 820.0, 0.055, "Pellet", pellet = true),
+        Entry("H&N", "Baracuda Match .22", ".22 pellet", 0.2165, 21.14, 920.0, 0.036, "Pellet", pellet = true),
+        // ---- Airgun slugs incl. AEA big-bore (velocities AEA-published for
+        //      the Element Max; slug BCs approximate -> drop-calibrate) ----
+        Entry("JSB", "KnockOut Slug .22", ".22 slug", 0.217, 25.4, 900.0, 0.090, "Slug", pellet = true),
+        Entry("AEA", "Slug .45 (Element Max)", ".45 slug", 0.457, 195.0, 960.0, 0.150, "Slug", pellet = true),
+        Entry("AEA", "Slug .50 (Element Max)", ".50 slug", 0.504, 245.0, 909.0, 0.150, "Slug", pellet = true),
+        Entry("AEA", "Slug .510 (Element Max)", ".510 slug", 0.510, 300.0, 849.0, 0.170, "Slug", pellet = true),
+        Entry("AEA", "Slug .58 (Element Max)", ".58 slug", 0.579, 445.0, 779.0, 0.200, "Slug", pellet = true),
     )
 
     const val ALL = "All"
