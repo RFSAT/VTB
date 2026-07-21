@@ -102,9 +102,12 @@ object ScopeCatalog {
         // ---- ATN digital day/night (X-Sight 5 family; FOV verified: 9.0deg
         //      at 3x base, 6.3deg at 5x base; record to microSD up to 4K,
         //      WiFi streaming via ATN Connect 5, Recoil Activated Video) ----
-        // X-Sight LTV: FOV 240 ft @ 5x base = 5.0deg (verified, multiple sources; 720p record)
-        Entry("ATN", "X-Sight LTV 5-15x", 5.0, 15.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 5.0, family = "Digital day/night", streamCapable = true),
-        Entry("ATN", "X-Sight LTV 3-9x", 3.0, 9.0, 30.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 8.0, family = "Digital day/night", streamCapable = true),
+        // X-Sight LTV: FOV 240 ft @ 5x base = 5.0deg (verified; 720p record).
+        // NO Wi-Fi streaming: the low-power Obsidian LT core drops Wi-Fi
+        // entirely — LTV records to its SD card only (spec sheets list no
+        // Wi-Fi row; user-confirmed). All other ATN generations stream.
+        Entry("ATN", "X-Sight LTV 5-15x", 5.0, 15.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 5.0, family = "Digital day/night", streamCapable = false),
+        Entry("ATN", "X-Sight LTV 3-9x", 3.0, 9.0, 30.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 90.0, 2.2, baseFovDeg = 8.0, family = "Digital day/night", streamCapable = false),
         // X-Sight 4K Pro: FOV VERIFIED — 3-14x = 460 ft/9.0deg @3x base,
         // 5-20x = 240 ft/5.0deg @5x base (ATN site + multiple resellers).
         Entry("ATN", "X-Sight 4K Pro 3-14x", 3.0, 14.0, 50.0, ClickUnit.MRAD_TENTH, mrad(30.0), mrad(30.0), 100.0, 2.2, baseFovDeg = 9.0, family = "Digital day/night", streamCapable = true),

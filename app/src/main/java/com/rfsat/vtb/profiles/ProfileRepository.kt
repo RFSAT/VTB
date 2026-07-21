@@ -158,6 +158,26 @@ class ProfileRepository(context: Context) {
         if (getBullet().name == wrong) saveBullet(getBullet().copy(name = fixedName))
     }
 
+    /**
+     * v1.20.25 one-time fix-up: v20.23 marked ALL ATN entries stream-capable,
+     * but the LTV line has no Wi-Fi (Obsidian LT core; SD-card recording
+     * only). Clear the flag on any stored LTV scope — active profile and
+     * inside saved sets — so the Capture source selector hides correctly.
+     */
+    fun migrateLtvStreamFlag() {
+        fun fix(sc: ScopeProfile): ScopeProfile =
+            if (sc.streamCapable && sc.name.contains("X-Sight LTV")) sc.copy(streamCapable = false) else sc
+        var changed = false
+        val sets = getSets().map { set ->
+            val f = fix(set.scope)
+            if (f !== set.scope) { changed = true; set.copy(scope = f) } else set
+        }
+        if (changed) prefs.edit().putString(KEY_SETS, gson.toJson(sets)).apply()
+        val active = getScope()
+        val fixedActive = fix(active)
+        if (fixedActive !== active) saveScope(fixedActive)
+    }
+
     fun saveSet(set: ProfileSet) {
         val updated = getSets().filter { it.name != set.name } + set
         prefs.edit().putString(KEY_SETS, gson.toJson(updated)).apply()

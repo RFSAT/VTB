@@ -91,6 +91,7 @@ class ProfileActivity : BaseActivity() {
         binding.btnDeleteSet.setOnClickListener { deleteSelectedSet() }
         repo.seedDefaultSetsIfEmpty() // v20.22: user's rigs as ready-made sets
         repo.migrateSeededBulletBrand() // v1.20.24: AEA-branded pellet -> EDgun
+        repo.migrateLtvStreamFlag() // v1.20.25: LTV has no Wi-Fi -> clear stream flag
         refreshSetSpinner()
     }
 
