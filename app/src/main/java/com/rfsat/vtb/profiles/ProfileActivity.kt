@@ -11,7 +11,6 @@ class ProfileActivity : BaseActivity() {
 
     private lateinit var binding: ActivityProfileBinding
     private lateinit var repo: ProfileRepository
-    private var suppressPresetCallback = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,8 +33,11 @@ class ProfileActivity : BaseActivity() {
         )
         binding.spinnerScopePreset.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (suppressPresetCallback) { suppressPresetCallback = false; return }
                 val entry = ScopeCatalog.entries.getOrNull(position) ?: return // Custom -> leave fields
+                // State comparison instead of a suppress flag (same eaten-
+                // selection hazard as the set spinner): if the fields already
+                // hold this scope, the selection is programmatic/no-op.
+                if (binding.etScopeName.text.toString() == "${'$'}{entry.brand} ${'$'}{entry.model}") return
                 applyImportedScope(entry.toScopeProfile())
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -92,6 +94,7 @@ class ProfileActivity : BaseActivity() {
         repo.seedDefaultSetsIfEmpty() // v20.22: user's rigs as ready-made sets
         repo.migrateSeededBulletBrand() // v1.20.24: AEA-branded pellet -> EDgun
         repo.migrateLtvStreamFlag() // v1.20.25: LTV has no Wi-Fi -> clear stream flag
+        repo.migrateDefaultSetBullet() // v1.20.26: default set bullet CCI -> Federal GMT
         refreshSetSpinner()
     }
 
@@ -198,6 +201,13 @@ class ProfileActivity : BaseActivity() {
             sp.adapter = a
         }
         spinner(spBrand, RifleCatalog.brands()); spinner(spType, RifleCatalog.types())
+        // v1.20.26: default the Type filter from the airgun checkbox — with
+        // "Airgun pellet/slug" unticked the list opens on rimfire rifles,
+        // ticked it opens on air rifles. (The checkbox marks the BULLET as a
+        // tracked projectile; catalogues list everything — this just picks
+        // the relevant starting filter. Switch to "All" to see every rifle.)
+        val defaultType = if (binding.cbPellet.isChecked) "Air (PCP)" else "Rimfire"
+        RifleCatalog.types().indexOf(defaultType).takeIf { it >= 0 }?.let { spType.setSelection(it) }
         var current: List<RifleCatalog.Entry> = emptyList()
         fun refresh() {
             current = RifleCatalog.filter(spBrand.selectedItem as String, spType.selectedItem as String)
@@ -508,30 +518,27 @@ class ProfileActivity : BaseActivity() {
 
     // ---- Profile sets (v16.0) ----
 
-    private var suppressSetCallback = false
-
     private fun refreshSetSpinner() {
         val names = repo.getSets().map { it.name }
-        suppressSetCallback = true // adapter assignment fires one selection callback
         binding.spinnerProfileSets.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_dropdown_item,
             if (names.isEmpty()) listOf("(no saved sets)") else names
         )
         // v20.10: point the spinner at the active set so Settings agrees with Home.
         repo.getActiveSetName()?.let { active ->
-            names.indexOf(active).takeIf { it >= 0 }?.let {
-                suppressSetCallback = true
-                binding.spinnerProfileSets.setSelection(it)
-            }
+            names.indexOf(active).takeIf { it >= 0 }?.let { binding.spinnerProfileSets.setSelection(it) }
         }
-        // v1.20.24: SELECTING a set loads it immediately - no separate Load
-        // press needed (Load button kept as a harmless alias). The suppress
-        // flag keeps programmatic selections (adapter set, restore-on-open)
-        // from re-triggering loads.
+        // v1.20.26: SELECTING a set loads it — decided by STATE COMPARISON,
+        // not suppression flags. Spinner.setSelection only fires its callback
+        // when the position CHANGES, so a pre-set suppress flag for a no-op
+        // selection was never consumed and silently ate the user's NEXT real
+        // selection (the "set doesn't load" bug). Comparing against the
+        // active set name is idempotent and immune to callback timing.
         binding.spinnerProfileSets.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (suppressSetCallback) { suppressSetCallback = false; return }
-                if (repo.getSets().isNotEmpty()) loadSelectedSet()
+                val set = repo.getSets().getOrNull(position) ?: return
+                if (set.name == repo.getActiveSetName()) return // already active
+                loadSelectedSet()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -740,7 +747,6 @@ class ProfileActivity : BaseActivity() {
             cbPellet.isChecked = bullet.isPellet
 
             // Select the matching catalogue entry (or Custom, the last item).
-            suppressPresetCallback = true
             val presetIdx = ScopeCatalog.entries.indexOfFirst { "${it.brand} ${it.model}" == scope.name }
             spinnerScopePreset.setSelection(if (presetIdx >= 0) presetIdx else ScopeCatalog.entries.size)
         }

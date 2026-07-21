@@ -31,6 +31,24 @@
             android:layout_marginTop="8dp" android:layout_marginBottom="4dp"
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
 
+        <!-- Profile sets (v16.0): named rifle+bullet+scope snapshots. Wind
+             measured with one set can be re-applied on the Results screen
+             to compute corrections for another. -->
+        <TextView android:id="@+id/tvHeaderSets" android:text="Profile sets"
+            android:textStyle="bold" android:textSize="18sp"
+            android:layout_marginTop="12dp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <Spinner android:id="@+id/spinnerProfileSets"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <Button android:id="@+id/btnSaveSet" android:text="Save as"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+            <Button android:id="@+id/btnLoadSet" android:text="Load"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+            <Button android:id="@+id/btnDeleteSet" android:text="Delete"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+        </LinearLayout>
+
         <TextView android:id="@+id/tvHeaderRifle" android:text="@string/rifle_profile" android:textStyle="bold" android:textSize="18sp"
             android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="8dp"/>
         <!-- v20.22: rifle catalogue (third leg beside bullet+scope) so a full
@@ -194,23 +212,7 @@
         <TextView android:id="@+id/tvWindScale" android:textSize="12sp"
             android:layout_width="wrap_content" android:layout_height="wrap_content"/>
 
-        <!-- Profile sets (v16.0): named rifle+bullet+scope snapshots. Wind
-             measured with one set can be re-applied on the Results screen
-             to compute corrections for another. -->
-        <TextView android:id="@+id/tvHeaderSets" android:text="Profile sets"
-            android:textStyle="bold" android:textSize="14sp"
-            android:layout_marginTop="12dp"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-        <Spinner android:id="@+id/spinnerProfileSets"
-            android:layout_width="match_parent" android:layout_height="wrap_content"/>
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <Button android:id="@+id/btnSaveSet" android:text="Save as"
-                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
-            <Button android:id="@+id/btnLoadSet" android:text="Load"
-                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
-            <Button android:id="@+id/btnDeleteSet" android:text="Delete"
-                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
-        </LinearLayout>
+
 
         <TextView android:id="@+id/tvHeaderScope" android:text="@string/scope_profile" android:textStyle="bold" android:textSize="18sp"
             android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:layout_marginBottom="8dp"/>

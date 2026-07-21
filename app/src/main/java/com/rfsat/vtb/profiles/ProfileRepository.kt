@@ -120,7 +120,7 @@ class ProfileRepository(context: Context) {
             ProfileSet(
                 name = ".22LR — Ruger + Continental",
                 rifle = rifle("Ruger Precision Rimfire .22LR", zeroM = 200.0) ?: return,
-                bullet = bullet("CCI", "Standard Velocity") ?: return,
+                bullet = bullet("Federal", "Gold Medal Target") ?: return,
                 scope = scope("Vector Optics Continental 5-30x56") ?: return
             ),
             ProfileSet(
@@ -140,6 +140,12 @@ class ProfileRepository(context: Context) {
             .putString(KEY_SETS, gson.toJson(seeds))
             .putBoolean(KEY_SETS_SEEDED, true)
             .apply()
+        // v1.20.26: the first set is the DEFAULT — applied as the active
+        // selection on a fresh install so the app starts on a complete rig.
+        seeds.firstOrNull()?.let { d ->
+            saveRifle(d.rifle); saveBullet(d.bullet); saveScope(d.scope)
+            setActiveSetName(d.name)
+        }
     }
 
     /**
@@ -164,6 +170,25 @@ class ProfileRepository(context: Context) {
      * only). Clear the flag on any stored LTV scope — active profile and
      * inside saved sets — so the Capture source selector hides correctly.
      */
+    /**
+     * v1.20.26 one-time fix-up: the default set's bullet changed from CCI
+     * Standard Velocity to Federal Gold Medal Target (user request). Update
+     * the stored seeded set only if it still carries the original CCI load
+     * (a customised bullet is left alone).
+     */
+    fun migrateDefaultSetBullet() {
+        val fed = AmmoCatalog.entries
+            .firstOrNull { it.manufacturer == "Federal" && it.product == "Gold Medal Target" }
+            ?.toBulletProfile() ?: return
+        var changed = false
+        val sets = getSets().map { set ->
+            if (set.name == ".22LR — Ruger + Continental" && set.bullet.name.startsWith("CCI Standard Velocity")) {
+                changed = true; set.copy(bullet = fed)
+            } else set
+        }
+        if (changed) prefs.edit().putString(KEY_SETS, gson.toJson(sets)).apply()
+    }
+
     fun migrateLtvStreamFlag() {
         fun fix(sc: ScopeProfile): ScopeProfile =
             if (sc.streamCapable && sc.name.contains("X-Sight LTV")) sc.copy(streamCapable = false) else sc
