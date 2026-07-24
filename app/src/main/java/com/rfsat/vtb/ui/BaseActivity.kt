@@ -88,17 +88,34 @@ open class BaseActivity : AppCompatActivity() {
      * fitting enabled keeps the default IME resize behaviour intact — the
      * capture screen's EditTexts must not end up under the keyboard.
      */
+    /** v1.20.32: full screen is now user-selectable (Settings > Display). */
+    fun fullScreenEnabled(): Boolean =
+        getSharedPreferences("vtb_prefs", MODE_PRIVATE).getBoolean("full_screen", true)
+
     private fun enterFullScreen() {
         val controller = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-        controller.systemBarsBehavior =
-            androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (fullScreenEnabled()) {
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior =
+                androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            // Bars visible: the app still draws edge to edge (enforced from
+            // targetSdk 35), so the IME padding in applyImeInsets keeps text
+            // fields clear of the keyboard exactly as in full-screen mode.
+            controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
         // Draw into the camera-cutout strip too (S24 punch-hole) — otherwise
         // a letterboxed black band remains where the status bar used to be.
+        //
+        // v1.20.32: the short-edges cutout mode is DEPRECATED in Android 15
+        // (Play flags it), because windows there lay out into cutouts anyway.
+        // ALWAYS is not deprecated and matches what 15+ does implicitly, so it
+        // clears the warning while preserving this behaviour on Android 9-14,
+        // where the attribute still does the work.
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
             window.attributes = window.attributes.apply {
                 layoutInDisplayCutoutMode =
-                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             }
         }
     }

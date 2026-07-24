@@ -514,6 +514,13 @@ class ProfileActivity : BaseActivity() {
             getSharedPreferences("vtb_prefs", MODE_PRIVATE).edit().putBoolean("log_tab_visible", checked).apply()
             recreate()
         }
+        // v1.20.32: Play suggests offering an explicit full-screen control
+        // rather than forcing immersive mode on everyone.
+        binding.swFullScreen.isChecked = fullScreenEnabled()
+        binding.swFullScreen.setOnCheckedChangeListener { _, checked ->
+            getSharedPreferences("vtb_prefs", MODE_PRIVATE).edit().putBoolean("full_screen", checked).apply()
+            recreate() // re-applies window flags on this screen; others do it in onCreate
+        }
 
         val um = com.rfsat.vtb.ui.UnitsManager
         val tm = com.rfsat.vtb.ui.ThemeManager

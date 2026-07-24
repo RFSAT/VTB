@@ -30,6 +30,10 @@
             android:id="@+id/swLogTab" android:text="Show Log tab"
             android:layout_marginTop="8dp" android:layout_marginBottom="4dp"
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <Switch
+            android:id="@+id/swFullScreen" android:text="Full-screen view (hide status and navigation bars)"
+            android:layout_marginTop="4dp" android:layout_marginBottom="4dp"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
 
         <!-- Profile sets (v16.0): named rifle+bullet+scope snapshots. Wind
              measured with one set can be re-applied on the Results screen

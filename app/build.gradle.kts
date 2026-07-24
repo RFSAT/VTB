@@ -14,8 +14,8 @@ android {
         applicationId = "com.VTBC"
         minSdk = 26
         targetSdk = 36
-        versionCode = 146
-        versionName = "1.20.31" // scheme: <brand>.<major>.<minor>; brand 1 = current VTB
+        versionCode = 147
+        versionName = "1.20.32" // scheme: <brand>.<major>.<minor>; brand 1 = current VTB
     }
 
     signingConfigs {
@@ -35,18 +35,20 @@ android {
             isMinifyEnabled = false
         }
         release {
-            // R8/obfuscation stays OFF deliberately. Play warns that no
-            // deobfuscation (mapping) file is attached — that warning is
-            // informational and does not apply here: with minification off
-            // nothing is renamed, so crash stack traces already arrive fully
-            // readable, which is exactly what a mapping file would restore.
-            // Enabling R8 would rename the fields of the Gson-persisted data
-            // classes (BulletProfile/RifleProfile/ScopeProfile/ProfileSet,
-            // the analysis payload and the AppBackup document), silently
-            // changing every stored JSON key, so it must not be switched on
-            // without keep rules for those classes plus a save/load/backup
-            // round-trip test.
-            isMinifyEnabled = false
+            // v1.20.32: R8 ON, per Play's optimisation recommendation. It
+            // strips unreachable library code (including the Material sheet
+            // classes this app never uses, which were the source of Play's
+            // deprecated setStatusBarColor/setNavigationBarColor notice) and
+            // produces the mapping file that Play's other warning asked for —
+            // AGP packages that into the bundle automatically.
+            //
+            // SAFETY: proguard-rules.pro keeps ALL com.rfsat.vtb classes and
+            // members. Every persisted format in this app is Gson reflection
+            // over field NAMES, so renaming a field silently changes a stored
+            // JSON key — no crash, no build error, just vanished profiles.
+            // Resource shrinking is left OFF for this first optimised build
+            // to keep the number of new variables down.
+            isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
 
             // v1.20.31: answers Play's second warning — the bundle carries
