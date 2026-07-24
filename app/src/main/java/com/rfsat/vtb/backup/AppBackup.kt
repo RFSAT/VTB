@@ -145,6 +145,35 @@ object AppBackup {
         written
     }
 
+    /**
+     * v1.20.33: re-read every in-memory singleton from the freshly restored
+     * preferences, so the app does NOT have to be killed after a restore.
+     *
+     * These four are the only objects that cache preference state for the
+     * life of the process:
+     *   ThemeManager / UnitsManager  — cache their setting in a field, filled
+     *                                  by init() at process start
+     *   EnvironmentManager           — holds the working atmosphere
+     *   AnalysisSession              — holds the last analysis and history
+     * ProfileRepository re-reads its store on every call, and FieldUnits'
+     * canonical cache belongs to an individual field/spinner binding, so
+     * both are refreshed simply by rebuilding the activities.
+     *
+     * Each call is guarded: a restore that has already succeeded must not be
+     * undone by one uncooperative singleton.
+     */
+    fun reloadInMemoryState(ctx: Context) {
+        runCatching { com.rfsat.vtb.ui.ThemeManager.init(ctx) }
+            .onFailure { Logger.w(TAG, "theme reload: ${it.message}") }
+        runCatching { com.rfsat.vtb.ui.UnitsManager.init(ctx) }
+            .onFailure { Logger.w(TAG, "units reload: ${it.message}") }
+        runCatching { com.rfsat.vtb.environment.EnvironmentManager.restore(ctx) }
+            .onFailure { Logger.w(TAG, "environment reload: ${it.message}") }
+        runCatching { com.rfsat.vtb.results.AnalysisSession.restore(ctx) }
+            .onFailure { Logger.w(TAG, "analysis reload: ${it.message}") }
+        Logger.i(TAG, "In-memory state reloaded after restore")
+    }
+
     private fun parse(json: String): Backup {
         val b = try {
             Gson().fromJson(json, Backup::class.java)

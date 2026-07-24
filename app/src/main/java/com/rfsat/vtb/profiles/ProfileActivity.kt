@@ -185,22 +185,30 @@ class ProfileActivity : BaseActivity() {
                 "From VTB ${summary.versionName}, saved ${when_}.\n" +
                 "${summary.keys} stored values across ${summary.stores} sections.\n\n" +
                 "This REPLACES everything currently stored \u2014 profiles, profile sets, " +
-                "calibrations, units and preferences. VTB will close afterwards; reopen it " +
-                "to load the restored data."
+                "calibrations, units and preferences. VTB reloads itself afterwards."
             )
             .setPositiveButton("Restore") { _, _ ->
                 com.rfsat.vtb.backup.AppBackup.restore(this, json)
                     .onSuccess { n ->
+                        // v1.20.33: no shutdown. Reload the singletons that
+                        // cache preference state, then rebuild the activity
+                        // stack from Home — CLEAR_TASK drops any screen still
+                        // holding pre-restore values, and every activity reads
+                        // its data afresh in onCreate.
+                        com.rfsat.vtb.backup.AppBackup.reloadInMemoryState(this)
                         androidx.appcompat.app.AlertDialog.Builder(this)
                             .setTitle("Restored")
-                            .setMessage("$n values restored. VTB will now close \u2014 reopen it to continue.")
+                            .setMessage("$n values restored.")
                             .setCancelable(false)
-                            .setPositiveButton("Close VTB") { _, _ ->
-                                finishAffinity()
-                                // Singletons (analysis, environment, theme) read their
-                                // stores at process start, so end the process rather
-                                // than leave stale in-memory state over fresh data.
-                                kotlin.system.exitProcess(0)
+                            .setPositiveButton("OK") { _, _ ->
+                                startActivity(
+                                    android.content.Intent(this, com.rfsat.vtb.ui.MainActivity::class.java)
+                                        .addFlags(
+                                            android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                        )
+                                )
+                                finish()
                             }
                             .show()
                     }

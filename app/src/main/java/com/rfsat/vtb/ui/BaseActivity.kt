@@ -184,7 +184,12 @@ open class BaseActivity : AppCompatActivity() {
 
     private var navSelectedItemId: Int = 0
     protected fun logTabEnabled(): Boolean =
-        getSharedPreferences("vtb_prefs", MODE_PRIVATE).getBoolean("log_tab_visible", true)
+        // v1.20.34: hidden by DEFAULT — the Log tab is a diagnostic surface,
+        // not part of the normal shooting workflow, so the bar ships as the
+        // four tabs a user actually needs. Re-enable in Settings > Display &
+        // units. (The crash-report dialog on Home has its own Share button,
+        // so diagnostics remain reachable even with the tab hidden.)
+        getSharedPreferences("vtb_prefs", MODE_PRIVATE).getBoolean("log_tab_visible", false)
 
     // v20.14: swipe order excludes Log when the tab is hidden.
     private val tabOrder: IntArray
