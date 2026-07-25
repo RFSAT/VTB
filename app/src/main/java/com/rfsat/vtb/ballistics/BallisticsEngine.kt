@@ -225,7 +225,15 @@ object BallisticsEngine {
     fun dragDecayedDistanceFn(
         bullet: BulletProfile,
         atmosphere: Atmosphere,
-        maxTS: Double
+        maxTS: Double,
+        // v1.20.36: the bullet STOPS at the target — it is caught by the
+        // backstop, it does not fly on. Cap the distance mapping there so the
+        // chart never plots a sample beyond where the bullet physically went
+        // (the un-capped integral reported 1000 m+ for a 200 m range, because
+        // it modelled a bullet that never hit anything). 0 or negative = no
+        // cap (the old un-terminated behaviour), used only when the target
+        // distance is unknown.
+        capDistanceM: Double = 0.0
     ): (Double) -> Double {
         val dt = 0.001
         val n = (maxTS / dt).toInt() + 2
@@ -239,7 +247,7 @@ object BallisticsEngine {
             val a2 = dragDecayRate(bullet, atmosphere, vMid) * vMid
             x += vMid * dt
             v = (v - dt * a2).coerceAtLeast(1.0)
-            xs[i] = x
+            xs[i] = if (capDistanceM > 0.0) x.coerceAtMost(capDistanceM) else x
         }
         return { t ->
             val idx = t / dt

@@ -986,7 +986,11 @@ class CaptureActivity : BaseActivity() {
                 val windSamples = if (rawSamples.isEmpty()) rawSamples else {
                     val distFn = BallisticsEngine.dragDecayedDistanceFn(
                         bullet, atmosphere,
-                        maxTS = rawSamples.maxOf { it.timeS } + 0.1
+                        maxTS = rawSamples.maxOf { it.timeS } + 0.1,
+                        // Bullet stops at the target — cap the mapping there so
+                        // post-impact trail samples (which still measure wind)
+                        // don't get plotted at impossible distances.
+                        capDistanceM = targetDistanceYd * 0.9144
                     )
                     rawSamples.map { it.copy(downrangeM = distFn(it.timeS)) }
                 }

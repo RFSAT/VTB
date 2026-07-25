@@ -113,18 +113,33 @@ class ResultsActivity : BaseActivity() {
         // carry one constant effective distance there, so those fall back
         // to the v17.5 nominal-MV linear mapping.
         val samples = AnalysisSession.windSamples.sortedBy { it.timeS }
+        // v1.20.36: distance now stops at the target (the bullet is caught
+        // there). The trail keeps drifting and measuring wind AFTER impact,
+        // but those samples all share the target distance — so plot the chart
+        // against DISTANCE up to the target, then against TIME once the bullet
+        // has arrived, where the remaining samples actually carry information.
+        // A single distance axis would stack every post-impact sample on one
+        // vertical line at the target range.
+        val targetM = AnalysisSession.targetDistanceYd * 0.9144
         val spreadM =
             if (samples.isEmpty()) 0.0
             else samples.maxOf { it.downrangeM } - samples.minOf { it.downrangeM }
-        val points = if (spreadM > 1.0) {
-            samples.map { UnitsManager.displayDistance(it.downrangeM) to UnitsManager.displaySpeed(it.crosswindMps) }
+        val flightSamples = samples.filter { it.downrangeM < targetM - 0.5 }
+        val useTimeAxis = spreadM <= 1.0 || flightSamples.size < 3
+        val points = if (useTimeAxis) {
+            // Legacy payload (no real spread) OR the bullet arrives so fast
+            // that almost every sample is post-impact: a time axis is the
+            // honest representation.
+            samples.map { it.timeS.toDouble() to UnitsManager.displaySpeed(it.crosswindMps) }
         } else {
-            val mvMps = AnalysisSession.muzzleVelocityMps.takeIf { it > 0.0 }
-                ?: com.rfsat.vtb.profiles.ProfileRepository(this).getBullet().muzzleVelocityMps
-            samples.map { UnitsManager.displayDistance(it.timeS * mvMps) to UnitsManager.displaySpeed(it.crosswindMps) }
+            samples.map { UnitsManager.displayDistance(it.downrangeM.coerceAtMost(targetM)) to
+                UnitsManager.displaySpeed(it.crosswindMps) }
         }
         binding.windChart.setSeries(points)
-        binding.windChart.title = "Crosswind vs. distance ($dU / $sU, +right)"
+        binding.windChart.title = if (useTimeAxis)
+            "Crosswind vs. time after shot (s / $sU, +right)"
+        else
+            "Crosswind vs. distance to target ($dU / $sU, +right)"
 
         // v16.0: wind transfer — the measured wind is a property of the air,
         // so it can drive a correction for ANY saved rifle/bullet/scope set.
@@ -236,7 +251,7 @@ class ResultsActivity : BaseActivity() {
             return
         }
         val csv = buildString {
-            append("time_s,downrange_m,crosswind_mps,vertical_mps,confidence\n")
+            append("time_s,downrange_m_capped_at_target,crosswind_mps,vertical_mps,confidence\n")
             for (w in samples) {
                 append("%.3f,%.1f,%.3f,%.3f,%.3f\n".format(
                     w.timeS, w.downrangeM, w.crosswindMps, w.verticalWindMps, w.confidence))
