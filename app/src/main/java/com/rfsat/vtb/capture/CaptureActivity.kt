@@ -927,25 +927,57 @@ class CaptureActivity : BaseActivity() {
                 //    strike flash, so track only tof + a small margin.
                 val trackWindowS = if (tracer) tofS + 0.3 else settleS + DRIFT_OBSERVATION_S
                 if (tracer) Logger.i(TAG, "TRACER mode: tracking bullet for ${"%.2f".format(trackWindowS)}s (tof=${"%.2f".format(tofS)}s)")
-                val extraction = TrailExtractor.extract(
+                val primaryMode = when {
+                    tracer -> TrailExtractor.Mode.TRACER
+                    bullet.isPellet -> TrailExtractor.Mode.PELLET
+                    else -> TrailExtractor.Mode.VAPOR
+                }
+                var extraction = TrailExtractor.extract(
                     localFile.absolutePath, shotBreakOffsetS,
                     clipDurationAfterShotS = trackWindowS,
                     externalReferenceBitmap = referenceBitmap,
-                    mode = when {
-                        tracer -> TrailExtractor.Mode.TRACER
-                        bullet.isPellet -> TrailExtractor.Mode.PELLET
-                        else -> TrailExtractor.Mode.VAPOR
-                    }
+                    mode = primaryMode
                 )
+                // v1.20.37: point-tracking modes (PELLET/TRACER) look for the
+                // projectile ITSELF in flight. That works for a warm pellet or
+                // a burning tracer, but an unlit supersonic bullet (e.g. .22 LR)
+                // is a sub-pixel smear crossing the frame in ~0.1 s on a phone
+                // camera and registers in almost no frames. Rather than fail,
+                // fall back to VAPOR — which tracks the disturbed-air trail and
+                // IS the right method for such rounds — and tell the user we
+                // switched, so the mode setting can be corrected for next time.
+                var usedFallback = false
+                val MIN_POINT_OBS = 4
+                if (primaryMode != TrailExtractor.Mode.VAPOR &&
+                    extraction.observations.size < MIN_POINT_OBS) {
+                    Logger.i(TAG, "Point-track ($primaryMode) gave ${extraction.observations.size} obs (<$MIN_POINT_OBS) — retrying in VAPOR")
+                    val vapor = TrailExtractor.extract(
+                        localFile.absolutePath, shotBreakOffsetS,
+                        clipDurationAfterShotS = settleS + DRIFT_OBSERVATION_S,
+                        externalReferenceBitmap = referenceBitmap,
+                        mode = TrailExtractor.Mode.VAPOR
+                    )
+                    if (vapor.observations.size > extraction.observations.size) {
+                        extraction = vapor
+                        usedFallback = true
+                    }
+                }
                 localFile.delete()
                 val observations = extraction.observations
                 if (observations.isEmpty()) {
+                    val msg = if (primaryMode != TrailExtractor.Mode.VAPOR)
+                        "No projectile detected. Frame-by-frame projectile tracking needs the projectile to be visible \u2014 an unlit bullet on a phone camera (e.g. .22 LR at distance) is too small and fast to register. Untick projectile tracking (and Tracer) to use vapor-trail analysis, which is the right method here. Projectile tracking suits tracers, airgun slugs, and bullets filmed through a digital scope where the projectile spans real pixels."
+                    else
+                        "No trail detected — check lighting/contrast and try again."
                     withContext(Dispatchers.Main) {
                         setUiBusy(false)
-                        notifyUser("No trail detected — check lighting/contrast and try again.")
+                        notifyUser(msg)
                     }
                     return@launch
                 }
+                // The estimator path must follow the mode ACTUALLY used, not the
+                // profile's flag, once a fallback has occurred.
+                val effectivePointTracked = pointTracked && !usedFallback
 
                 // Calibration is done in the extractor's own decoded-frame pixel
                 // space (returned in ExtractionResult), so pixel coordinates and
@@ -964,7 +996,7 @@ class CaptureActivity : BaseActivity() {
                     boresightPixelY = boresightYNorm * frameHeightPx
                 )
 
-                val rawSamples = if (pointTracked) {
+                val rawSamples = if (effectivePointTracked) {
                     com.rfsat.vtb.wind.TracerWindEstimator.estimate(
                         calibration, observations, bullet, atmosphere,
                         zeroDistanceM = activeRifle.zeroDistanceM,
@@ -1021,6 +1053,10 @@ class CaptureActivity : BaseActivity() {
 
                 withContext(Dispatchers.Main) {
                     setUiBusy(false)
+                    if (usedFallback) notifyUser(
+                        "Projectile not trackable on this clip \u2014 analysed the vapor trail instead. " +
+                        "Projectile tracking needs a visible projectile (tracer, airgun slug, or a bullet filmed through a digital scope); for unlit bullets on a phone camera, leave it unticked."
+                    )
                     startActivity(Intent(this@CaptureActivity, ResultsActivity::class.java))
                 }
             } catch (t: Throwable) {

@@ -151,7 +151,7 @@
             android:textSize="14sp"
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
         <CheckBox android:id="@+id/cbPellet"
-            android:text="Airgun pellet/slug (track the projectile in flight)"
+            android:text="Track the projectile in flight (airgun slug, or a bullet filmed through a digital scope) instead of the vapor trail"
             android:textSize="14sp"
             android:layout_width="match_parent" android:layout_height="wrap_content"/>
 

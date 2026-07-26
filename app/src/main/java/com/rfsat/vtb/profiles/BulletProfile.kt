@@ -23,6 +23,12 @@ data class BulletProfile(
     val isTracer: Boolean = false,
     /** v20.18: airgun projectile — analysis tracks the pellet/slug itself
      *  (a compact luminance-contrast point) instead of a vapor trail. */
+    // NOTE: despite the legacy name, isPellet means "track the projectile in
+    // flight" — true for airgun slugs AND for any bullet filmed through a
+    // digital scope where the projectile spans real pixels. The stored JSON
+    // key stays "isPellet" (renaming it would break every saved profile, CSV
+    // and backup, which are Gson-keyed by field name); read it via the
+    // trackProjectile alias below where intent matters.
     val isPellet: Boolean = false,
     /** v20.1: rimfire/centerfire powder is temperature-sensitive — MV shifts
      *  roughly 0.5-1 m/s per degC for .22LR. With the Kestrel supplying real
@@ -50,4 +56,7 @@ data class BulletProfile(
     companion object {
         val DEFAULT = BulletProfile()
     }
+
+    /** Intent-revealing alias for isPellet — see note above. */
+    val trackProjectile: Boolean get() = isPellet || isTracer
 }

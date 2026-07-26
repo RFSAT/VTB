@@ -286,12 +286,11 @@ class ProfileActivity : BaseActivity() {
         }
         spinner(spBrand, RifleCatalog.brands()); spinner(spType, RifleCatalog.types())
         // v1.20.26: default the Type filter from the airgun checkbox — with
-        // "Airgun pellet/slug" unticked the list opens on rimfire rifles,
-        // ticked it opens on air rifles. (The checkbox marks the BULLET as a
-        // tracked projectile; catalogues list everything — this just picks
-        // the relevant starting filter. Switch to "All" to see every rifle.)
-        val defaultType = if (binding.cbPellet.isChecked) "Air (PCP)" else "Rimfire"
-        RifleCatalog.types().indexOf(defaultType).takeIf { it >= 0 }?.let { spType.setSelection(it) }
+        // v1.20.38: the projectile-tracking checkbox no longer implies an air
+        // rifle (a centrefire bullet filmed through a digital scope is also
+        // trackable), so it must NOT bias the rifle-catalogue filter. Open on
+        // "All" and let the user narrow it. (Catalogues always list every type.)
+        RifleCatalog.types().indexOf("All").takeIf { it >= 0 }?.let { spType.setSelection(it) }
         var current: List<RifleCatalog.Entry> = emptyList()
         fun refresh() {
             current = RifleCatalog.filter(spBrand.selectedItem as String, spType.selectedItem as String)

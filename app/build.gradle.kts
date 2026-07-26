@@ -14,8 +14,8 @@ android {
         applicationId = "com.VTBC"
         minSdk = 26
         targetSdk = 36
-        versionCode = 151
-        versionName = "1.20.36" // scheme: <brand>.<major>.<minor>; brand 1 = current VTB
+        versionCode = 153
+        versionName = "1.20.38" // scheme: <brand>.<major>.<minor>; brand 1 = current VTB
     }
 
     signingConfigs {
