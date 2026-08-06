@@ -166,6 +166,8 @@ class CaptureActivity : BaseActivity() {
         binding.btnNudgeReset.setOnClickListener { setBoresight(0.0, 0.0) }
 
         binding.btnRecord.setOnClickListener {
+            val src = VideoSourceRepository.selected(this)
+            Logger.i(TAG, "Record pressed \u2014 source='${src.name}' isPhone=${src.isPhone} url='${src.url}'")
             if (streamSourceSelected()) toggleStreamRecording() else toggleRecording()
         }
         // v19.9: the SLIDER commands the camera (unit steps); the Zoom (x)
@@ -588,7 +590,9 @@ class CaptureActivity : BaseActivity() {
         val source = VideoSourceRepository.selected(this)
         val streaming = !source.isPhone
         binding.rowCaptureSource.visibility = android.view.View.GONE // selection lives in Settings now
-        binding.tvStreamStatus.visibility = if (streaming) android.view.View.VISIBLE else android.view.View.GONE
+        // v1.20.40: always show which source is active (not only for streams),
+        // so a mis-set source is visible before recording rather than after.
+        binding.tvStreamStatus.visibility = android.view.View.VISIBLE
         binding.btnArm.isEnabled = !streaming // audio auto-trigger is a camera-path feature
         updateStreamStatusIdle()
     }
@@ -602,7 +606,7 @@ class CaptureActivity : BaseActivity() {
         val s = VideoSourceRepository.selected(this)
         binding.tvStreamStatus.text = if (!s.isPhone)
             "Live source: ${s.name} \u2014 ${streamUrl()} (connect the phone\u2019s Wi-Fi to this device). Change in Settings > Video source."
-        else ""
+        else "Source: phone camera. Change in Settings > Video source."
     }
 
     private fun toggleStreamRecording() {

@@ -939,23 +939,29 @@ class ProfileActivity : BaseActivity() {
         }
     }
 
-    private var videoSourceSpinnerReady = false
     private fun refreshVideoSourceSpinner() {
         val repo = com.rfsat.vtb.capture.VideoSourceRepository
         val sources = repo.all(this)
         val labels = sources.map { if (it.isPhone) it.name else "${it.name} (RTSP)" }
         val a = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, labels)
         a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        videoSourceSpinnerReady = false
         binding.spVideoSource.adapter = a
         val selIdx = sources.indexOfFirst { it.id == repo.selectedId(this) }.coerceAtLeast(0)
         binding.spVideoSource.setSelection(selIdx)
         updateVideoSourceUrlLabel(sources.getOrNull(selIdx))
+        // v1.20.40: NO swallow-first guard. setSelection() on position 0 (the
+        // phone camera default) fires no callback, which left the flag unset so
+        // the user's FIRST real tap was swallowed and never persisted — the
+        // exact "Tactacam selected but Capture still uses the phone" bug. Here
+        // the listener instead writes only when the chosen id actually differs
+        // from what is already stored, so both the initial framework callback
+        // and a re-selection of the current item are harmless no-ops.
         binding.spVideoSource.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: android.widget.AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
-                if (!videoSourceSpinnerReady) { videoSourceSpinnerReady = true; return }
                 val s = sources.getOrNull(pos) ?: return
-                repo.select(this@ProfileActivity, s.id)
+                if (s.id != repo.selectedId(this@ProfileActivity)) {
+                    repo.select(this@ProfileActivity, s.id)
+                }
                 updateVideoSourceUrlLabel(s)
             }
             override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
