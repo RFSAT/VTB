@@ -41,7 +41,10 @@ class RtspStreamRecorder(
     private val urlBase: String,          // e.g. rtsp://192.168.1.1:554 (path optional)
     private val outFile: File,
     private val network: Network?,        // scope-AP Wi-Fi; null = default routing
-    private val onStatus: (String) -> Unit
+    private val onStatus: (String) -> Unit,
+    // v1.20.43: when set, each decoded frame is rendered here for a LIVE
+    // preview, in parallel with muxing to MP4. Null = record only (headless).
+    private val previewSurface: android.view.Surface? = null
 ) {
     companion object {
         private const val TAG = "RtspRecorder"
@@ -54,6 +57,9 @@ class RtspStreamRecorder(
     private var thread: Thread? = null
     @Volatile var framesWritten = 0; private set
     @Volatile var bytesRead = 0L; private set
+    // v1.20.43: optional preview decoder + its buffer info.
+    private var decoder: MediaCodec? = null
+    private val decInfo = MediaCodec.BufferInfo()
     @Volatile var lastError: String? = null; private set
 
     fun start() {
@@ -225,6 +231,20 @@ class RtspStreamRecorder(
                 track = it.addTrack(fmt); it.start()
             }
             Logger.i(TAG, "Muxer started: ${dims.first}x${dims.second} (from SPS) -> ${outFile.name}")
+            // v1.20.43: start a decoder rendering to the preview surface too.
+            if (previewSurface != null && decoder == null) {
+                runCatching {
+                    val dfmt = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, dims.first, dims.second).apply {
+                        setByteBuffer("csd-0", ByteBuffer.wrap(START + sps!!))
+                        setByteBuffer("csd-1", ByteBuffer.wrap(START + pps!!))
+                    }
+                    decoder = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).apply {
+                        configure(dfmt, previewSurface, null, 0)
+                        start()
+                    }
+                    Logger.i(TAG, "Preview decoder started: ${dims.first}x${dims.second}")
+                }.onFailure { Logger.w(TAG, "Preview decoder failed (recording continues): ${it.message}") }
+            }
         }
 
         fun flushAu() {
@@ -243,6 +263,7 @@ class RtspStreamRecorder(
                 if (framesWritten > 0 || key) { // MP4 must start on a keyframe
                     m.writeSampleData(track, buf, info)
                     framesWritten++
+                    feedDecoder(buf, info)
                 }
             }
             au.clear()
@@ -312,8 +333,36 @@ class RtspStreamRecorder(
             }
         }
         flushAu()
+        runCatching { decoder?.stop(); decoder?.release() }
+        decoder = null
         runCatching { muxer?.stop(); muxer?.release() }
         Logger.i(TAG, "Recorder stopped: $framesWritten frames, ${bytesRead / 1024} KiB -> ${outFile.length()} bytes")
+    }
+
+    /**
+     * v1.20.43: push one Annex-B access unit into the preview decoder and
+     * render whatever comes out to the Surface. Best-effort — any failure
+     * disables preview but never interrupts recording.
+     */
+    private fun feedDecoder(annexB: ByteBuffer, srcInfo: MediaCodec.BufferInfo) {
+        val dec = decoder ?: return
+        try {
+            val inIdx = dec.dequeueInputBuffer(0)
+            if (inIdx >= 0) {
+                val ib = dec.getInputBuffer(inIdx)!!
+                ib.clear()
+                annexB.rewind()
+                ib.put(annexB)
+                dec.queueInputBuffer(inIdx, 0, srcInfo.size, srcInfo.presentationTimeUs, 0)
+            }
+            var outIdx = dec.dequeueOutputBuffer(decInfo, 0)
+            while (outIdx >= 0) {
+                dec.releaseOutputBuffer(outIdx, true) // true = render to Surface
+                outIdx = dec.dequeueOutputBuffer(decInfo, 0)
+            }
+        } catch (t: Throwable) {
+            Logger.w(TAG, "Preview decode dropped a frame: ${t.message}")
+        }
     }
 
     /** Minimal SPS parse for width/height (Exp-Golomb; handles cropping). */

@@ -640,15 +640,16 @@ class CaptureActivity : BaseActivity() {
     }
 
     private fun showStreamPreviewIdle(source: VideoSourceRepository.Source) {
-        // The RtspStreamRecorder decodes to an MP4 rather than to a live
-        // Surface, so there is no continuous on-screen preview yet; make the
-        // state explicit instead of leaving a frozen phone-camera image.
+        // v1.20.43: show the stream SurfaceView; the recorder decodes each
+        // frame to it live once capture starts.
         binding.previewView.visibility = android.view.View.INVISIBLE
+        binding.streamPreview.visibility = android.view.View.VISIBLE
         binding.tvStreamStatus.text =
-            "Live source: ${source.name} \u2014 ${streamUrl()}. Connect the phone\u2019s Wi-Fi to it, then press Record to pull the stream."
+            "Live source: ${source.name} \u2014 ${streamUrl()}. Connect the phone\u2019s Wi-Fi to it, then press Capture to pull the stream."
     }
 
     private fun hideStreamPreview() {
+        binding.streamPreview.visibility = android.view.View.GONE
         binding.previewView.visibility = android.view.View.VISIBLE
     }
 
@@ -690,7 +691,7 @@ class CaptureActivity : BaseActivity() {
                 pendingReferenceBitmap = null
                 binding.btnAnalyze.isEnabled = true
                 Logger.i(TAG, "Scope stream saved: ${active.framesWritten} frames, ${f.length()} bytes")
-                notifyUser("Stream captured (${active.framesWritten} frames). Long-press Record to export the clip for checking.")
+                notifyUser("Stream captured (${active.framesWritten} frames). Long-press the Capture button to export the clip for checking.")
                 maybeOfferScopeGeometry()
             } else {
                 notifyUser("No video received from the scope — see the Log tab and share it; the RTSP handshake there identifies the fix. ${active.lastError ?: ""}")
@@ -737,9 +738,11 @@ class CaptureActivity : BaseActivity() {
     private fun startStreamRecorder(net: android.net.Network?) {
         if (net == null) Logger.w(TAG, "No Wi-Fi network callback; using default routing (stream may fail if mobile data is active)")
         val f = java.io.File(cacheDir, "scope_stream.mp4").apply { delete() }
-        val rec = RtspStreamRecorder(streamUrl(), f, net) { msg ->
+        val previewSurface = binding.streamPreview.holder.surface?.takeIf { it.isValid }
+        if (previewSurface == null) Logger.w(TAG, "Stream preview surface not ready — recording without live preview (MP4 still saved)")
+        val rec = RtspStreamRecorder(streamUrl(), f, net, { msg ->
             runOnUiThread { binding.tvStreamStatus.text = "Scope stream: $msg" }
-        }
+        }, previewSurface)
         streamRecorder = rec
         Logger.i(TAG, "Scope stream recording started: ${streamUrl()}")
         rec.start()

@@ -14,6 +14,12 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
+        <SurfaceView
+            android:id="@+id/streamPreview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
         <com.rfsat.vtb.capture.CrosshairOverlayView
             android:id="@+id/crosshair"
             android:layout_width="match_parent"
