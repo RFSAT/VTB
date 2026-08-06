@@ -170,6 +170,13 @@ class CaptureActivity : BaseActivity() {
             Logger.i(TAG, "Record pressed \u2014 source='${src.name}' isPhone=${src.isPhone} url='${src.url}'")
             if (streamSourceSelected()) toggleStreamRecording() else toggleRecording()
         }
+        // v1.20.41: long-press Record to export the last received stream clip
+        // (useful for checking what the RTSP source actually delivered).
+        binding.btnRecord.setOnLongClickListener {
+            if (streamSourceSelected() || java.io.File(cacheDir, "scope_stream.mp4").length() > 0) {
+                exportLastStreamClip(); true
+            } else false
+        }
         // v19.9: the SLIDER commands the camera (unit steps); the Zoom (x)
         // field is descriptive again — auto-echoed from the camera, manual
         // only for imported clips.
@@ -200,7 +207,11 @@ class CaptureActivity : BaseActivity() {
 
         val cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         audioPermissionGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        if (cameraGranted) startCamera()
+        // v1.20.41: only bring up the phone camera when it is the selected
+        // source. With an RTSP source (e.g. Tactacam) the phone camera must
+        // NOT start — otherwise its preview and FOV setup run and the screen
+        // shows the phone despite the stream selection (the reported bug).
+        if (cameraGranted && !streamSourceSelected()) startCamera()
         val toRequest = mutableListOf<String>()
         if (!cameraGranted) toRequest.add(Manifest.permission.CAMERA)
         if (!audioPermissionGranted) toRequest.add(Manifest.permission.RECORD_AUDIO)
@@ -589,12 +600,21 @@ class CaptureActivity : BaseActivity() {
         // only reflects the current selection; it is configured in Settings.
         val source = VideoSourceRepository.selected(this)
         val streaming = !source.isPhone
+        Logger.i(TAG, "Capture source = '${source.name}' (isPhone=${source.isPhone}, url='${source.url}')")
         binding.rowCaptureSource.visibility = android.view.View.GONE // selection lives in Settings now
-        // v1.20.40: always show which source is active (not only for streams),
-        // so a mis-set source is visible before recording rather than after.
         binding.tvStreamStatus.visibility = android.view.View.VISIBLE
         binding.btnArm.isEnabled = !streaming // audio auto-trigger is a camera-path feature
         updateStreamStatusIdle()
+        // v1.20.41: bring the phone camera up or down to match the source, so
+        // switching source in Settings and returning here takes effect live.
+        val cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        if (streaming) {
+            stopCameraForStream()
+            showStreamPreviewIdle(source)
+        } else {
+            hideStreamPreview()
+            if (cameraGranted && videoCapture == null) startCamera()
+        }
     }
 
     private fun streamUrl(): String {
@@ -607,6 +627,54 @@ class CaptureActivity : BaseActivity() {
         binding.tvStreamStatus.text = if (!s.isPhone)
             "Live source: ${s.name} \u2014 ${streamUrl()} (connect the phone\u2019s Wi-Fi to this device). Change in Settings > Video source."
         else "Source: phone camera. Change in Settings > Video source."
+    }
+
+    // v1.20.41: keep the phone camera and the stream mutually exclusive on
+    // this screen, and give the stream its own idle state on the preview.
+    private fun stopCameraForStream() {
+        runCatching {
+            val provider = ProcessCameraProvider.getInstance(this).get()
+            provider.unbindAll()
+        }.onFailure { Logger.w(TAG, "unbind for stream: ${it.message}") }
+        videoCapture = null
+    }
+
+    private fun showStreamPreviewIdle(source: VideoSourceRepository.Source) {
+        // The RtspStreamRecorder decodes to an MP4 rather than to a live
+        // Surface, so there is no continuous on-screen preview yet; make the
+        // state explicit instead of leaving a frozen phone-camera image.
+        binding.previewView.visibility = android.view.View.INVISIBLE
+        binding.tvStreamStatus.text =
+            "Live source: ${source.name} \u2014 ${streamUrl()}. Connect the phone\u2019s Wi-Fi to it, then press Record to pull the stream."
+    }
+
+    private fun hideStreamPreview() {
+        binding.previewView.visibility = android.view.View.VISIBLE
+    }
+
+    /** v1.20.41: export the last captured stream clip so it can be inspected. */
+    private fun exportLastStreamClip() {
+        val f = java.io.File(cacheDir, "scope_stream.mp4")
+        if (!f.exists() || f.length() == 0L) {
+            notifyUser("No recorded stream to export yet — record from an RTSP source first.")
+            return
+        }
+        exportStreamLauncher.launch("VTB_stream_${System.currentTimeMillis()}.mp4")
+    }
+
+    private val exportStreamLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("video/mp4")
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            val f = java.io.File(cacheDir, "scope_stream.mp4")
+            contentResolver.openOutputStream(uri)?.use { out -> f.inputStream().use { it.copyTo(out) } }
+                ?: throw java.io.IOException("no output stream")
+            notifyUser("Stream clip exported (${f.length() / 1024} KB).")
+        } catch (t: Throwable) {
+            Logger.w(TAG, "Stream export failed: ${t.message}")
+            notifyUser("Export failed: ${t.message}")
+        }
     }
 
     private fun toggleStreamRecording() {
@@ -622,6 +690,7 @@ class CaptureActivity : BaseActivity() {
                 pendingReferenceBitmap = null
                 binding.btnAnalyze.isEnabled = true
                 Logger.i(TAG, "Scope stream saved: ${active.framesWritten} frames, ${f.length()} bytes")
+                notifyUser("Stream captured (${active.framesWritten} frames). Long-press Record to export the clip for checking.")
                 maybeOfferScopeGeometry()
             } else {
                 notifyUser("No video received from the scope — see the Log tab and share it; the RTSP handshake there identifies the fix. ${active.lastError ?: ""}")
@@ -634,12 +703,26 @@ class CaptureActivity : BaseActivity() {
         binding.btnRecord.text = getString(com.rfsat.vtb.R.string.stop)
         binding.tvStreamStatus.text = "Acquiring Wi-Fi network…"
         val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        // v1.20.42: the scope/camera hotspot has NO internet, so a plain
+        // TRANSPORT_WIFI request (which implies NET_CAPABILITY_INTERNET) is
+        // never satisfied by it. Remove that capability so Android binds us to
+        // the internet-less AP; without this the callback never fires and we
+        // silently fall back to default routing (which fails whenever mobile
+        // data is on).
         val req = android.net.NetworkRequest.Builder()
-            .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI).build()
+            .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI)
+            .removeCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
         val started = java.util.concurrent.atomic.AtomicBoolean(false)
         fun begin(net: android.net.Network?) {
             if (!started.compareAndSet(false, true)) return
             scopeWifiNetwork = net
+            // Bind the whole process to the scope network so the RTSP socket
+            // can't leak onto mobile data; harmless when net is null.
+            runCatching {
+                if (net != null) cm.bindProcessToNetwork(net)
+            }.onFailure { Logger.w(TAG, "bindProcessToNetwork: ${it.message}") }
+            if (net != null) Logger.i(TAG, "Bound to scope Wi-Fi network")
             runOnUiThread { startStreamRecorder(net) }
         }
         val cb = object : android.net.ConnectivityManager.NetworkCallback() {
@@ -648,7 +731,7 @@ class CaptureActivity : BaseActivity() {
         networkCallback = cb
         runCatching { cm.requestNetwork(req, cb) }
             .onFailure { begin(null) }
-        binding.root.postDelayed({ begin(null) }, 5000) // no Wi-Fi callback -> try default route
+        binding.root.postDelayed({ begin(null) }, 8000) // no Wi-Fi bind in 8s -> default route
     }
 
     private fun startStreamRecorder(net: android.net.Network?) {
@@ -663,6 +746,9 @@ class CaptureActivity : BaseActivity() {
     }
 
     private fun releaseScopeNetwork() {
+        runCatching {
+            getSystemService(android.net.ConnectivityManager::class.java).bindProcessToNetwork(null)
+        }
         networkCallback?.let { cb ->
             runCatching { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(cb) }
         }
