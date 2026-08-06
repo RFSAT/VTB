@@ -257,6 +257,27 @@
         <Button android:id="@+id/btnSave" android:text="@string/save" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp"/>
         <Button android:id="@+id/btnResetDefaults" android:text="@string/reset_defaults" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"/>
 
+        <TextView android:id="@+id/tvHeaderVideoSource" android:text="Video source"
+            android:textStyle="bold" android:textSize="18sp" android:layout_marginTop="24dp"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <TextView android:text="Where capture video comes from: the phone camera, or a live RTSP stream from a scope-mounted camera (e.g. Tactacam 5.0) or a digital scope. Set up the phone\u2019s Wi-Fi to the device\u2019s network before recording."
+            android:textSize="12sp" android:layout_marginBottom="4dp"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <Spinner android:id="@+id/spVideoSource"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="4dp"/>
+        <TextView android:id="@+id/tvVideoSourceUrl" android:text=""
+            android:textSize="12sp" android:layout_marginBottom="4dp"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <LinearLayout android:orientation="horizontal"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp">
+            <Button android:id="@+id/btnVideoSourceAdd" android:text="Add RTSP\u2026"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+            <Button android:id="@+id/btnVideoSourceEdit" android:text="Edit"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="6dp"/>
+            <Button android:id="@+id/btnVideoSourceRemove" android:text="Remove"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="6dp"/>
+        </LinearLayout>
+
         <TextView android:id="@+id/tvHeaderBackup" android:text="Backup &amp; restore"
             android:textStyle="bold" android:textSize="18sp"
             android:layout_marginTop="24dp"

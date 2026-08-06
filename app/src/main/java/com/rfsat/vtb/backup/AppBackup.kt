@@ -45,7 +45,8 @@ object AppBackup {
         "vtb_theme",           // display mode
         "vtb_units",           // app-wide measurement units
         "vtb_last_analysis",   // last analysis payload + 50-entry history
-        "vtb_environment"      // last weather with sources and timestamp
+        "vtb_environment",     // last weather with sources and timestamp
+        "vtb_video_sources"    // v1.20.39: named RTSP capture sources + selection
     )
 
     private data class Entry(

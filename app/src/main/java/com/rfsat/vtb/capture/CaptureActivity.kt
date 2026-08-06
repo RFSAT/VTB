@@ -166,7 +166,7 @@ class CaptureActivity : BaseActivity() {
         binding.btnNudgeReset.setOnClickListener { setBoresight(0.0, 0.0) }
 
         binding.btnRecord.setOnClickListener {
-            if (scopeSourceSelected()) toggleStreamRecording() else toggleRecording()
+            if (streamSourceSelected()) toggleStreamRecording() else toggleRecording()
         }
         // v19.9: the SLIDER commands the camera (unit steps); the Zoom (x)
         // field is descriptive again — auto-echoed from the camera, manual
@@ -576,58 +576,33 @@ class CaptureActivity : BaseActivity() {
     // analysis pipeline. The exact stream path varies by model, so candidate
     // paths are auto-probed and the whole handshake is logged.
 
-    private fun streamPrefs() = getSharedPreferences("vtb_capture_fields", MODE_PRIVATE)
 
-    private fun scopeSourceSelected(): Boolean =
-        binding.rowCaptureSource.visibility == android.view.View.VISIBLE &&
-            binding.spCaptureSource.selectedItemPosition == 1
+    private fun streamSourceSelected(): Boolean =
+        !VideoSourceRepository.selected(this).isPhone
 
     private fun setupCaptureSource() {
-        val scope = com.rfsat.vtb.profiles.ProfileRepository(this).getScope()
-        if (!scope.streamCapable) {
-            binding.rowCaptureSource.visibility = android.view.View.GONE
-            binding.tvStreamStatus.visibility = android.view.View.GONE
-            return
-        }
-        binding.rowCaptureSource.visibility = android.view.View.VISIBLE
-        binding.tvStreamStatus.visibility = android.view.View.VISIBLE
-        val items = listOf("Phone camera", "${scope.name} (Wi-Fi stream)")
-        val a = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, items)
-        a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        binding.spCaptureSource.adapter = a
-        binding.spCaptureSource.setSelection(streamPrefs().getInt("capture_source", 0).coerceIn(0, 1))
+        // v1.20.39: the capture source is a persistent Settings choice
+        // (VideoSourceRepository), NOT a scope property — a Tactacam or other
+        // scope-mounted camera can stream regardless of the optic. This screen
+        // only reflects the current selection; it is configured in Settings.
+        val source = VideoSourceRepository.selected(this)
+        val streaming = !source.isPhone
+        binding.rowCaptureSource.visibility = android.view.View.GONE // selection lives in Settings now
+        binding.tvStreamStatus.visibility = if (streaming) android.view.View.VISIBLE else android.view.View.GONE
+        binding.btnArm.isEnabled = !streaming // audio auto-trigger is a camera-path feature
         updateStreamStatusIdle()
-        binding.spCaptureSource.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p: android.widget.AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
-                streamPrefs().edit().putInt("capture_source", pos).apply()
-                binding.btnArm.isEnabled = pos == 0 // audio auto-trigger is a camera-path feature (v1)
-                updateStreamStatusIdle()
-            }
-            override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
-        }
-        binding.tvStreamStatus.setOnClickListener { if (streamRecorder == null) editStreamUrl() }
     }
 
-    private fun streamUrl(): String =
-        streamPrefs().getString("stream_url", "rtsp://192.168.1.1:554") ?: "rtsp://192.168.1.1:554"
+    private fun streamUrl(): String {
+        val s = VideoSourceRepository.selected(this)
+        return if (s.url.isNotBlank()) s.url else "rtsp://192.168.1.1:554"
+    }
 
     private fun updateStreamStatusIdle() {
-        binding.tvStreamStatus.text = if (scopeSourceSelected())
-            "Scope stream: ${streamUrl()} (connect phone Wi-Fi to the scope; tap to edit URL)"
-        else "Phone camera selected"
-    }
-
-    private fun editStreamUrl() {
-        val input = android.widget.EditText(this).apply { setText(streamUrl()) }
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Scope stream URL")
-            .setMessage("Default is the ATN hotspot address. A path can be appended (e.g. /stream0); without one, common paths are probed automatically.")
-            .setView(input)
-            .setPositiveButton("Save") { _, _ ->
-                streamPrefs().edit().putString("stream_url", input.text.toString().trim()).apply()
-                updateStreamStatusIdle()
-            }
-            .setNegativeButton("Cancel", null).show()
+        val s = VideoSourceRepository.selected(this)
+        binding.tvStreamStatus.text = if (!s.isPhone)
+            "Live source: ${s.name} \u2014 ${streamUrl()} (connect the phone\u2019s Wi-Fi to this device). Change in Settings > Video source."
+        else ""
     }
 
     private fun toggleStreamRecording() {

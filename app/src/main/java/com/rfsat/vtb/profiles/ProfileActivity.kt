@@ -77,6 +77,8 @@ class ProfileActivity : BaseActivity() {
             backupCreate.launch("VTB_backup_${com.rfsat.vtb.BuildConfig.VERSION_NAME}.json")
         }
         binding.btnBackupRestore.setOnClickListener { backupOpen.launch(arrayOf("application/json", "text/plain", "*/*")) }
+
+        setupVideoSourceUi()
         binding.cbTracer.setOnCheckedChangeListener { _, on -> if (on) binding.cbPellet.isChecked = false }
         binding.cbPellet.setOnCheckedChangeListener { _, on -> if (on) binding.cbTracer.isChecked = false }
         binding.btnChronograph.setOnClickListener { showChronograph() }
@@ -89,7 +91,7 @@ class ProfileActivity : BaseActivity() {
 
         listOf(binding.tvHeaderDisplay, binding.tvHeaderRifle, binding.tvHeaderBullet, binding.tvHeaderScope,
                binding.tvHeaderDropCal, binding.tvHeaderWindCal, binding.tvHeaderSets,
-               binding.tvHeaderBackup).forEach {
+               binding.tvHeaderBackup, binding.tvHeaderVideoSource).forEach {
             it.paintFlags = it.paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
         }
 
@@ -913,4 +915,85 @@ class ProfileActivity : BaseActivity() {
             )
         )
     }
+
+    // ---- v1.20.39: Video source setup (phone camera / RTSP streams) ----
+    private fun setupVideoSourceUi() {
+        com.rfsat.vtb.capture.VideoSourceRepository.seedIfEmpty(this)
+        refreshVideoSourceSpinner()
+        binding.btnVideoSourceAdd.setOnClickListener { editVideoSource(null) }
+        binding.btnVideoSourceEdit.setOnClickListener {
+            val sel = com.rfsat.vtb.capture.VideoSourceRepository.selected(this)
+            if (sel.isPhone) notifyUser("The phone camera has nothing to edit. Select or add an RTSP source.")
+            else editVideoSource(sel.id)
+        }
+        binding.btnVideoSourceRemove.setOnClickListener {
+            val sel = com.rfsat.vtb.capture.VideoSourceRepository.selected(this)
+            if (sel.isPhone) { notifyUser("The phone camera can\u2019t be removed."); return@setOnClickListener }
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Remove ${sel.name}?")
+                .setPositiveButton("Remove") { _, _ ->
+                    com.rfsat.vtb.capture.VideoSourceRepository.remove(this, sel.id)
+                    refreshVideoSourceSpinner()
+                }
+                .setNegativeButton("Cancel", null).show()
+        }
+    }
+
+    private var videoSourceSpinnerReady = false
+    private fun refreshVideoSourceSpinner() {
+        val repo = com.rfsat.vtb.capture.VideoSourceRepository
+        val sources = repo.all(this)
+        val labels = sources.map { if (it.isPhone) it.name else "${it.name} (RTSP)" }
+        val a = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, labels)
+        a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        videoSourceSpinnerReady = false
+        binding.spVideoSource.adapter = a
+        val selIdx = sources.indexOfFirst { it.id == repo.selectedId(this) }.coerceAtLeast(0)
+        binding.spVideoSource.setSelection(selIdx)
+        updateVideoSourceUrlLabel(sources.getOrNull(selIdx))
+        binding.spVideoSource.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: android.widget.AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
+                if (!videoSourceSpinnerReady) { videoSourceSpinnerReady = true; return }
+                val s = sources.getOrNull(pos) ?: return
+                repo.select(this@ProfileActivity, s.id)
+                updateVideoSourceUrlLabel(s)
+            }
+            override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
+        }
+    }
+
+    private fun updateVideoSourceUrlLabel(s: com.rfsat.vtb.capture.VideoSourceRepository.Source?) {
+        binding.tvVideoSourceUrl.text = when {
+            s == null || s.isPhone -> "Uses the phone\u2019s built-in camera."
+            else -> "${s.url}  \u00b7  connect the phone\u2019s Wi-Fi to this device before recording"
+        }
+    }
+
+    private fun editVideoSource(id: String?) {
+        val repo = com.rfsat.vtb.capture.VideoSourceRepository
+        val existing = if (id != null) repo.all(this).firstOrNull { it.id == id } else null
+        val ctx = this
+        val nameIn = android.widget.EditText(ctx).apply {
+            hint = "Name (e.g. Tactacam 5.0)"; setText(existing?.name ?: "")
+        }
+        val urlIn = android.widget.EditText(ctx).apply {
+            hint = "rtsp://192.168.1.1:554"; setText(existing?.url ?: "rtsp://192.168.1.1:554")
+        }
+        val box = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            val pad = (16 * resources.displayMetrics.density).toInt(); setPadding(pad, pad/2, pad, 0)
+            addView(nameIn); addView(urlIn)
+        }
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle(if (existing == null) "Add RTSP source" else "Edit source")
+            .setMessage("A host and port is enough (rtsp://192.168.1.1:554) \u2014 the stream path is probed automatically. Append a path (e.g. /stream0) only if you know it.")
+            .setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                val saved = repo.put(ctx, existing?.id, nameIn.text.toString(), urlIn.text.toString())
+                if (saved == null) notifyUser("Give the source a name and an RTSP URL.")
+                else { repo.select(ctx, saved.id); refreshVideoSourceSpinner() }
+            }
+            .setNegativeButton("Cancel", null).show()
+    }
+
 }
