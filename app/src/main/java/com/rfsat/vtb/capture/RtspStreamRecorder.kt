@@ -44,7 +44,10 @@ class RtspStreamRecorder(
     private val onStatus: (String) -> Unit,
     // v1.20.43: when set, each decoded frame is rendered here for a LIVE
     // preview, in parallel with muxing to MP4. Null = record only (headless).
-    private val previewSurface: android.view.Surface? = null
+    private val previewSurface: android.view.Surface? = null,
+    // v1.20.44: preview-only — decode to the surface but DON'T write an MP4.
+    // Used to show the stream on the Capture tab before recording starts.
+    private val previewOnly: Boolean = false
 ) {
     companion object {
         private const val TAG = "RtspRecorder"
@@ -60,6 +63,7 @@ class RtspStreamRecorder(
     // v1.20.43: optional preview decoder + its buffer info.
     private var decoder: MediaCodec? = null
     private val decInfo = MediaCodec.BufferInfo()
+    private var previewStarted = false
     @Volatile var lastError: String? = null; private set
 
     fun start() {
@@ -220,7 +224,26 @@ class RtspStreamRecorder(
         val info = MediaCodec.BufferInfo()
         var lastLog = System.currentTimeMillis()
 
+        fun startDecoderIfReady() {
+            if (decoder != null || sps == null || pps == null) return
+            val dims0 = parseSpsDimensions(sps!!) ?: Pair(1920, 1080)
+            if (previewSurface != null) {
+                runCatching {
+                    val dfmt = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, dims0.first, dims0.second).apply {
+                        setByteBuffer("csd-0", ByteBuffer.wrap(START + sps!!))
+                        setByteBuffer("csd-1", ByteBuffer.wrap(START + pps!!))
+                    }
+                    decoder = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).apply {
+                        configure(dfmt, previewSurface, null, 0); start()
+                    }
+                    Logger.i(TAG, "Preview decoder started: ${dims0.first}x${dims0.second}")
+                }.onFailure { Logger.w(TAG, "Preview decoder failed: ${it.message}") }
+            }
+        }
+
         fun startMuxerIfReady() {
+            startDecoderIfReady()
+            if (previewOnly) return   // preview-only: no MP4
             if (muxer != null || sps == null || pps == null) return
             val dims = parseSpsDimensions(sps!!) ?: Pair(1920, 1080)
             val fmt = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, dims.first, dims.second).apply {
@@ -231,40 +254,28 @@ class RtspStreamRecorder(
                 track = it.addTrack(fmt); it.start()
             }
             Logger.i(TAG, "Muxer started: ${dims.first}x${dims.second} (from SPS) -> ${outFile.name}")
-            // v1.20.43: start a decoder rendering to the preview surface too.
-            if (previewSurface != null && decoder == null) {
-                runCatching {
-                    val dfmt = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, dims.first, dims.second).apply {
-                        setByteBuffer("csd-0", ByteBuffer.wrap(START + sps!!))
-                        setByteBuffer("csd-1", ByteBuffer.wrap(START + pps!!))
-                    }
-                    decoder = MediaCodec.createDecoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).apply {
-                        configure(dfmt, previewSurface, null, 0)
-                        start()
-                    }
-                    Logger.i(TAG, "Preview decoder started: ${dims.first}x${dims.second}")
-                }.onFailure { Logger.w(TAG, "Preview decoder failed (recording continues): ${it.message}") }
-            }
         }
 
         fun flushAu() {
             if (au.isEmpty()) return
             startMuxerIfReady()
+            var key = false
+            var size = 0
+            au.forEach { size += 4 + it.size; if ((it[0].toInt() and 0x1F) == 5) key = true }
+            val buf = ByteBuffer.allocate(size)
+            au.forEach { buf.put(START); buf.put(it) }
+            buf.flip()
+            if (firstRtpTs < 0) firstRtpTs = auTs
+            info.set(0, size, (auTs - firstRtpTs) * 1000 / 90, if (key) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
             val m = muxer
-            if (m != null) {
-                var key = false
-                var size = 0
-                au.forEach { size += 4 + it.size; if ((it[0].toInt() and 0x1F) == 5) key = true }
-                val buf = ByteBuffer.allocate(size)
-                au.forEach { buf.put(START); buf.put(it) }
-                buf.flip()
-                if (firstRtpTs < 0) firstRtpTs = auTs
-                info.set(0, size, (auTs - firstRtpTs) * 1000 / 90, if (key) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
-                if (framesWritten > 0 || key) { // MP4 must start on a keyframe
-                    m.writeSampleData(track, buf, info)
-                    framesWritten++
-                    feedDecoder(buf, info)
-                }
+            if (m != null && (framesWritten > 0 || key)) { // MP4 must start on a keyframe
+                m.writeSampleData(track, buf, info)
+                framesWritten++
+            }
+            // Preview decoder runs whether or not we are muxing; needs a keyframe first.
+            if (decoder != null && (previewStarted || key)) {
+                previewStarted = true
+                feedDecoder(buf, info)
             }
             au.clear()
         }

@@ -45,6 +45,7 @@ class CaptureActivity : BaseActivity() {
     private var pendingUri: Uri? = null // set by the recorder, the video-import picker, or an auto-trigger
     // v20.23: scope Wi-Fi stream capture (EXPERIMENTAL)
     private var streamRecorder: RtspStreamRecorder? = null
+    private var previewRecorder: RtspStreamRecorder? = null // v1.20.44: idle live preview
     private var scopeWifiNetwork: android.net.Network? = null
     private var networkCallback: android.net.ConnectivityManager.NetworkCallback? = null
 
@@ -170,13 +171,9 @@ class CaptureActivity : BaseActivity() {
             Logger.i(TAG, "Record pressed \u2014 source='${src.name}' isPhone=${src.isPhone} url='${src.url}'")
             if (streamSourceSelected()) toggleStreamRecording() else toggleRecording()
         }
-        // v1.20.41: long-press Record to export the last received stream clip
-        // (useful for checking what the RTSP source actually delivered).
-        binding.btnRecord.setOnLongClickListener {
-            if (streamSourceSelected() || java.io.File(cacheDir, "scope_stream.mp4").length() > 0) {
-                exportLastStreamClip(); true
-            } else false
-        }
+        // v1.20.44: a visible Save button (shown only for stream sources)
+        // exports the last received clip, replacing the earlier long-press.
+        binding.btnSaveStream.setOnClickListener { exportLastStreamClip() }
         // v19.9: the SLIDER commands the camera (unit steps); the Zoom (x)
         // field is descriptive again — auto-echoed from the camera, manual
         // only for imported clips.
@@ -219,6 +216,7 @@ class CaptureActivity : BaseActivity() {
     }
 
     override fun onPause() {
+        stopIdlePreview() // release the surface + network when leaving the tab
         saveCaptureFields()
         super.onPause()
     }
@@ -604,6 +602,7 @@ class CaptureActivity : BaseActivity() {
         binding.rowCaptureSource.visibility = android.view.View.GONE // selection lives in Settings now
         binding.tvStreamStatus.visibility = android.view.View.VISIBLE
         binding.btnArm.isEnabled = !streaming // audio auto-trigger is a camera-path feature
+        binding.btnSaveStream.visibility = if (streaming) android.view.View.VISIBLE else android.view.View.GONE
         updateStreamStatusIdle()
         // v1.20.41: bring the phone camera up or down to match the source, so
         // switching source in Settings and returning here takes effect live.
@@ -640,12 +639,33 @@ class CaptureActivity : BaseActivity() {
     }
 
     private fun showStreamPreviewIdle(source: VideoSourceRepository.Source) {
-        // v1.20.43: show the stream SurfaceView; the recorder decodes each
-        // frame to it live once capture starts.
         binding.previewView.visibility = android.view.View.INVISIBLE
         binding.streamPreview.visibility = android.view.View.VISIBLE
         binding.tvStreamStatus.text =
-            "Live source: ${source.name} \u2014 ${streamUrl()}. Connect the phone\u2019s Wi-Fi to it, then press Capture to pull the stream."
+            "Live source: ${source.name} \u2014 ${streamUrl()}. Connecting for preview\u2026 press Capture to record."
+        startIdlePreview()
+    }
+
+    // v1.20.44: a preview-only stream (decode to the surface, no MP4) so the
+    // scope image is visible on the Capture tab BEFORE recording. Reuses the
+    // same Wi-Fi bind as recording; silently does nothing if it can't connect.
+    private fun startIdlePreview() {
+        if (previewRecorder != null || streamRecorder != null) return
+        acquireScopeNetwork { net ->
+            if (previewRecorder != null || streamRecorder != null) return@acquireScopeNetwork
+            val surface = binding.streamPreview.holder.surface?.takeIf { it.isValid }
+            if (surface == null) { Logger.w(TAG, "Idle preview: surface not ready"); return@acquireScopeNetwork }
+            val tmp = java.io.File(cacheDir, "scope_preview_unused.mp4")
+            val rec = RtspStreamRecorder(streamUrl(), tmp, net, { }, surface, previewOnly = true)
+            previewRecorder = rec
+            Logger.i(TAG, "Idle stream preview started")
+            rec.start()
+        }
+    }
+
+    private fun stopIdlePreview() {
+        previewRecorder?.let { it.stop(); Logger.i(TAG, "Idle stream preview stopped") }
+        previewRecorder = null
     }
 
     private fun hideStreamPreview() {
@@ -690,26 +710,30 @@ class CaptureActivity : BaseActivity() {
                 pendingUri = Uri.fromFile(f)
                 pendingReferenceBitmap = null
                 binding.btnAnalyze.isEnabled = true
+                binding.btnSaveStream.isEnabled = true
                 Logger.i(TAG, "Scope stream saved: ${active.framesWritten} frames, ${f.length()} bytes")
-                notifyUser("Stream captured (${active.framesWritten} frames). Long-press the Capture button to export the clip for checking.")
+                notifyUser("Stream captured (${active.framesWritten} frames). Tap Save to export the clip, or Analyze to process it.")
                 maybeOfferScopeGeometry()
             } else {
                 notifyUser("No video received from the scope — see the Log tab and share it; the RTSP handshake there identifies the fix. ${active.lastError ?: ""}")
             }
             return
         }
-        // Start: bind to the scope's Wi-Fi network so traffic isn't routed to
-        // mobile data (the scope AP has no internet, and Android avoids such
-        // networks by default). Falls back to default routing after 5 s.
+        // Start recording: stop the idle preview (it holds the surface and the
+        // network), then acquire the scope Wi-Fi and start the full recorder.
+        stopIdlePreview()
         binding.btnRecord.text = getString(com.rfsat.vtb.R.string.stop)
         binding.tvStreamStatus.text = "Acquiring Wi-Fi network…"
+        acquireScopeNetwork { net -> startStreamRecorder(net) }
+    }
+
+    /**
+     * v1.20.44: acquire (and process-bind) the scope's internet-less Wi-Fi AP,
+     * then invoke [onReady] on the UI thread with the network (or null on
+     * fallback after 8 s). Shared by the idle preview and recording.
+     */
+    private fun acquireScopeNetwork(onReady: (android.net.Network?) -> Unit) {
         val cm = getSystemService(android.net.ConnectivityManager::class.java)
-        // v1.20.42: the scope/camera hotspot has NO internet, so a plain
-        // TRANSPORT_WIFI request (which implies NET_CAPABILITY_INTERNET) is
-        // never satisfied by it. Remove that capability so Android binds us to
-        // the internet-less AP; without this the callback never fires and we
-        // silently fall back to default routing (which fails whenever mobile
-        // data is on).
         val req = android.net.NetworkRequest.Builder()
             .addTransportType(android.net.NetworkCapabilities.TRANSPORT_WIFI)
             .removeCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -718,21 +742,17 @@ class CaptureActivity : BaseActivity() {
         fun begin(net: android.net.Network?) {
             if (!started.compareAndSet(false, true)) return
             scopeWifiNetwork = net
-            // Bind the whole process to the scope network so the RTSP socket
-            // can't leak onto mobile data; harmless when net is null.
-            runCatching {
-                if (net != null) cm.bindProcessToNetwork(net)
-            }.onFailure { Logger.w(TAG, "bindProcessToNetwork: ${it.message}") }
+            runCatching { if (net != null) cm.bindProcessToNetwork(net) }
+                .onFailure { Logger.w(TAG, "bindProcessToNetwork: ${it.message}") }
             if (net != null) Logger.i(TAG, "Bound to scope Wi-Fi network")
-            runOnUiThread { startStreamRecorder(net) }
+            runOnUiThread { onReady(net) }
         }
         val cb = object : android.net.ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: android.net.Network) = begin(network)
         }
         networkCallback = cb
-        runCatching { cm.requestNetwork(req, cb) }
-            .onFailure { begin(null) }
-        binding.root.postDelayed({ begin(null) }, 8000) // no Wi-Fi bind in 8s -> default route
+        runCatching { cm.requestNetwork(req, cb) }.onFailure { begin(null) }
+        binding.root.postDelayed({ begin(null) }, 8000)
     }
 
     private fun startStreamRecorder(net: android.net.Network?) {

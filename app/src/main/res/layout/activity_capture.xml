@@ -169,10 +169,20 @@
         android:padding="8dp">
 
         <Button android:id="@+id/btnRecord" android:text="@string/record"
+            android:textSize="13sp" android:minWidth="0dp"
+            android:paddingLeft="4dp" android:paddingRight="4dp" android:insetLeft="0dp" android:insetRight="0dp"
+            android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+        <Button android:id="@+id/btnSaveStream" android:text="Save"
+            android:textSize="13sp" android:minWidth="0dp" android:visibility="gone"
+            android:paddingLeft="4dp" android:paddingRight="4dp" android:insetLeft="0dp" android:insetRight="0dp"
             android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         <Button android:id="@+id/btnImportVideo" android:text="@string/import_video"
+            android:textSize="13sp" android:minWidth="0dp"
+            android:paddingLeft="4dp" android:paddingRight="4dp" android:insetLeft="0dp" android:insetRight="0dp"
             android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
         <Button android:id="@+id/btnAnalyze" android:text="@string/analyze_trail"
+            android:textSize="13sp" android:minWidth="0dp"
+            android:paddingLeft="4dp" android:paddingRight="4dp" android:insetLeft="0dp" android:insetRight="0dp"
             android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
     </LinearLayout>
 
