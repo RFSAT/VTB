@@ -26,6 +26,7 @@ object VideoSourceRepository {
     private const val KEY_URLS = "url_"        // url_<id>
     private const val KEY_NAMES = "name_"      // name_<id>
     private const val KEY_IDS = "ids"          // comma-separated custom ids
+    private const val KEY_CFG = "cfg_"         // cfg_<id> -> JSON of CameraConfig
 
     /** The always-present phone camera; id 0 is reserved for it. */
     const val PHONE_CAMERA_ID = "phone"
@@ -35,7 +36,29 @@ object VideoSourceRepository {
         val name: String,
         /** RTSP URL (host or host+path); empty for the phone camera. */
         val url: String,
-        val isPhone: Boolean
+        val isPhone: Boolean,
+        /** v1.20.45: a manual record of how the camera is configured, so the
+         *  analysis can interpret the stream correctly. Not camera control. */
+        val config: CameraConfig = CameraConfig()
+    )
+
+    /**
+     * The camera's own settings, entered by the user to MATCH how the physical
+     * camera is set up (e.g. Tactacam 5.0). VTB does not change the camera; it
+     * uses these to interpret the stream. Fields the analysis actually consumes
+     * are marked; the rest are recorded for reference and future use.
+     */
+    data class CameraConfig(
+        // CONSUMED by analysis:
+        val videoMode: String = "",       // e.g. "1280x720@240fps" — resolution + fps
+        val zoom: String = "",            // "1x" / "8x" — affects field of view
+        val redDot: Boolean = false,      // centre dot -> exclude a small centre region
+        val stabilization: Boolean = false, // on -> wind estimate is unreliable; warn
+        // RECORDED for reference (minor/no geometric effect):
+        val exposureEv: String = "",      // "-2.0".."+2.0"
+        val whiteBalance: String = "",    // Auto/Daylight/Cloudy/Fluorescent/Tungsten
+        val frequency: String = "",       // "50Hz"/"60Hz" (mains flicker)
+        val noiseReduction: Boolean = false // audio only; informational
     )
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -54,11 +77,37 @@ object VideoSourceRepository {
                 id = id,
                 name = p.getString("$KEY_NAMES$id", "RTSP source") ?: "RTSP source",
                 url = p.getString("$KEY_URLS$id", "") ?: "",
-                isPhone = false
+                isPhone = false,
+                config = readConfig(p, id)
             )
         }
         return listOf(phone()) + custom
     }
+
+    private fun readConfig(p: android.content.SharedPreferences, id: String): CameraConfig {
+        val json = p.getString("$KEY_CFG$id", null) ?: return CameraConfig()
+        return runCatching { com.google.gson.Gson().fromJson(json, CameraConfig::class.java) }
+            .getOrNull() ?: CameraConfig()
+    }
+
+    /** Save the camera-settings block for a source. */
+    fun putConfig(ctx: Context, id: String, config: CameraConfig) {
+        if (id == PHONE_CAMERA_ID) return
+        prefs(ctx).edit().putString("$KEY_CFG$id", com.google.gson.Gson().toJson(config)).apply()
+    }
+
+    fun configOf(ctx: Context, id: String): CameraConfig =
+        readConfig(prefs(ctx), id)
+
+    /** The fps implied by the selected video mode, or null if unset/unknown. */
+    fun fpsOf(config: CameraConfig): Int? =
+        Regex("@(\\d+)fps").find(config.videoMode)?.groupValues?.get(1)?.toIntOrNull()
+
+    /** The frame size implied by the video mode, or null. */
+    fun frameSizeOf(config: CameraConfig): Pair<Int, Int>? =
+        Regex("(\\d+)x(\\d+)").find(config.videoMode)?.let {
+            Pair(it.groupValues[1].toInt(), it.groupValues[2].toInt())
+        }
 
     fun selectedId(ctx: Context): String =
         prefs(ctx).getString(KEY_SELECTED, PHONE_CAMERA_ID) ?: PHONE_CAMERA_ID
@@ -97,6 +146,7 @@ object VideoSourceRepository {
         p.edit()
             .remove(KEY_URLS + id)
             .remove(KEY_NAMES + id)
+            .remove(KEY_CFG + id)
             .putString(KEY_IDS, order.joinToString(","))
             .apply()
         if (selectedId(ctx) == id) select(ctx, PHONE_CAMERA_ID)

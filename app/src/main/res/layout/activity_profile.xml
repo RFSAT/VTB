@@ -277,6 +277,8 @@
             <Button android:id="@+id/btnVideoSourceRemove" android:text="Remove"
                 android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginStart="6dp"/>
         </LinearLayout>
+        <Button android:id="@+id/btnVideoSourceCamera" android:text="Camera settings\u2026"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="8dp"/>
 
         <TextView android:id="@+id/tvHeaderBackup" android:text="Backup &amp; restore"
             android:textStyle="bold" android:textSize="18sp"

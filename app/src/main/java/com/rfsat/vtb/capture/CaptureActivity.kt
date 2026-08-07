@@ -1020,11 +1020,27 @@ class CaptureActivity : BaseActivity() {
                     bullet.isPellet -> TrailExtractor.Mode.PELLET
                     else -> TrailExtractor.Mode.VAPOR
                 }
+                // v1.20.45: honour the selected source's declared camera config.
+                // A centre red dot would be tracked as a false point, so exclude
+                // a small centre disc; declared stabilization biases wind, so warn.
+                val camCfg = VideoSourceRepository.selected(this@CaptureActivity).config
+                val exclusionPx = if (camCfg.redDot) {
+                    // ~4% of the shorter frame dimension — comfortably covers the dot.
+                    (minOf(referenceBitmap?.width ?: 1280, referenceBitmap?.height ?: 720) * 0.04).toInt()
+                } else 0
+                if (exclusionPx > 0) Logger.i(TAG, "Camera red-dot declared: excluding ${exclusionPx}px centre radius")
+                if (camCfg.stabilization) {
+                    Logger.w(TAG, "Camera stabilization declared ON — wind estimate may be biased")
+                    withContext(Dispatchers.Main) {
+                        notifyUser("Note: this source has image stabilization set ON, which moves the frame and biases the wind estimate. Turn it OFF on the camera for best results.")
+                    }
+                }
                 var extraction = TrailExtractor.extract(
                     localFile.absolutePath, shotBreakOffsetS,
                     clipDurationAfterShotS = trackWindowS,
                     externalReferenceBitmap = referenceBitmap,
-                    mode = primaryMode
+                    mode = primaryMode,
+                    centerExclusionRadiusPx = exclusionPx
                 )
                 // v1.20.37: point-tracking modes (PELLET/TRACER) look for the
                 // projectile ITSELF in flight. That works for a warm pellet or
@@ -1043,7 +1059,8 @@ class CaptureActivity : BaseActivity() {
                         localFile.absolutePath, shotBreakOffsetS,
                         clipDurationAfterShotS = settleS + DRIFT_OBSERVATION_S,
                         externalReferenceBitmap = referenceBitmap,
-                        mode = TrailExtractor.Mode.VAPOR
+                        mode = TrailExtractor.Mode.VAPOR,
+                        centerExclusionRadiusPx = exclusionPx
                     )
                     if (vapor.observations.size > extraction.observations.size) {
                         extraction = vapor

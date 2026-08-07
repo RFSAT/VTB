@@ -74,7 +74,12 @@ object TrailExtractor {
         sampleIntervalMs: Long = 33,
         scoreThreshold: Double = 16.0,
         externalReferenceBitmap: Bitmap? = null,
-        mode: Mode = Mode.VAPOR
+        mode: Mode = Mode.VAPOR,
+        // v1.20.45: pixels within this radius of the frame CENTRE are ignored.
+        // Used when the camera overlays a fixed red aiming dot (e.g. Tactacam
+        // "Red Dot" on), which the point trackers would otherwise lock onto.
+        // 0 = no exclusion (unchanged behaviour).
+        centerExclusionRadiusPx: Int = 0
     ): ExtractionResult {
         val threshold = if (mode == Mode.TRACER) TRACER_SCORE_THRESHOLD else scoreThreshold
         val retriever = MediaMetadataRetriever()
@@ -177,7 +182,7 @@ object TrailExtractor {
             val refGrad = if (mode == Mode.VAPOR) gradientMagnitude(refLum, w, h) else DoubleArray(0)
 
             val endS = shotBreakOffsetS + clipDurationAfterShotS
-            val scorer = Scorer(mode, threshold, refLum, refRed, refGrad, w, h, shotBreakOffsetS)
+            val scorer = Scorer(mode, threshold, refLum, refRed, refGrad, w, h, shotBreakOffsetS, centerExclusionRadiusPx)
 
             // FAST PATH (v19.0): one sequential MediaCodec pass — ~10x faster
             // than per-frame seeks, and every native frame in the window
@@ -252,12 +257,16 @@ object TrailExtractor {
         val refGrad: DoubleArray,
         val w: Int,
         val h: Int,
-        val shotBreakOffsetS: Double
+        val shotBreakOffsetS: Double,
+        val centerExclusionRadiusPx: Int = 0
     ) {
         val results = mutableListOf<PixelObservation>()
         private var lastX = w / 2.0
         private var lastY = h / 2.0
         private val searchRadius = (w.coerceAtMost(h)) / 3
+        private val cx = w / 2.0
+        private val cy = h / 2.0
+        private val exclR2 = centerExclusionRadiusPx.toDouble() * centerExclusionRadiusPx
 
         fun reset() {
             results.clear(); lastX = w / 2.0; lastY = h / 2.0
@@ -275,6 +284,10 @@ object TrailExtractor {
                 val rowOff = y * w
                 for (x in x0..x1) {
                     val idx = rowOff + x
+                    if (exclR2 > 0) {
+                        val ddx = x - cx; val ddy = y - cy
+                        if (ddx*ddx + ddy*ddy <= exclR2) continue // camera red-dot region
+                    }
                     val score = when (mode) {
                         Mode.TRACER ->
                             // Positive brightness rise + red-dominance rise:

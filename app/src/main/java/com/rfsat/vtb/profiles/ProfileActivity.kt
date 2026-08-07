@@ -926,6 +926,11 @@ class ProfileActivity : BaseActivity() {
             if (sel.isPhone) notifyUser("The phone camera has nothing to edit. Select or add an RTSP source.")
             else editVideoSource(sel.id)
         }
+        binding.btnVideoSourceCamera.setOnClickListener {
+            val sel = com.rfsat.vtb.capture.VideoSourceRepository.selected(this)
+            if (sel.isPhone) notifyUser("The phone camera is configured on the Capture tab. Select an RTSP source to record its camera settings.")
+            else editCameraSettings(sel.id)
+        }
         binding.btnVideoSourceRemove.setOnClickListener {
             val sel = com.rfsat.vtb.capture.VideoSourceRepository.selected(this)
             if (sel.isPhone) { notifyUser("The phone camera can\u2019t be removed."); return@setOnClickListener }
@@ -1000,6 +1005,81 @@ class ProfileActivity : BaseActivity() {
                 else { repo.select(ctx, saved.id); refreshVideoSourceSpinner() }
             }
             .setNegativeButton("Cancel", null).show()
+    }
+
+
+    // ---- v1.20.45: record how the (Tactacam-style) camera is configured ----
+    private fun editCameraSettings(id: String) {
+        val repo = com.rfsat.vtb.capture.VideoSourceRepository
+        val cfg = repo.configOf(this, id)
+        val ctx = this
+        val dp = resources.displayMetrics.density
+        fun pad(v: android.view.View) = v.apply { setPadding((8*dp).toInt(), (4*dp).toInt(), (8*dp).toInt(), (4*dp).toInt()) }
+
+        fun label(t: String) = android.widget.TextView(ctx).apply {
+            text = t; setPadding((8*dp).toInt(), (8*dp).toInt(), 0, 0)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+        fun spinner(options: List<String>, current: String): android.widget.Spinner {
+            val sp = android.widget.Spinner(ctx)
+            val a = android.widget.ArrayAdapter(ctx, android.R.layout.simple_spinner_item, options)
+            a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            sp.adapter = a
+            val i = options.indexOf(current); if (i >= 0) sp.setSelection(i)
+            return pad(sp) as android.widget.Spinner
+        }
+        fun switch(t: String, on: Boolean): android.widget.Switch {
+            return (pad(android.widget.Switch(ctx)) as android.widget.Switch).apply { text = t; isChecked = on }
+        }
+
+        val videoModes = listOf("", "3840x2160@15fps","3840x2160@30fps","2720x1520@30fps",
+            "1920x1080@30fps","1920x1080@60fps","1920x1080@120fps",
+            "1280x720@30fps","1280x720@60fps","1280x720@120fps","1280x720@240fps")
+        val zooms = listOf("", "1x", "8x")
+        val evs = listOf("", "-2.0","-1.0","0","+1.0","+2.0")
+        val wbs = listOf("", "Auto","Daylight","Cloudy","Fluorescent","Tungsten")
+        val freqs = listOf("", "50Hz","60Hz")
+
+        val spVideo = spinner(videoModes, cfg.videoMode)
+        val spZoom = spinner(zooms, cfg.zoom)
+        val spEv = spinner(evs, cfg.exposureEv)
+        val spWb = spinner(wbs, cfg.whiteBalance)
+        val spFreq = spinner(freqs, cfg.frequency)
+        val swRedDot = switch("Red dot in centre (VTB will ignore a small centre region)", cfg.redDot)
+        val swStab = switch("Image stabilization ON (not recommended \u2014 biases wind)", cfg.stabilization)
+        val swNr = switch("Wind/white-noise reduction (audio only)", cfg.noiseReduction)
+
+        val box = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            addView(label("Video size / frame rate")); addView(spVideo)
+            addView(label("Zoom")); addView(spZoom)
+            addView(swRedDot); addView(swStab)
+            addView(label("Exposure compensation (EV)")); addView(spEv)
+            addView(label("White balance")); addView(spWb)
+            addView(label("Mains frequency")); addView(spFreq)
+            addView(swNr)
+        }
+        val scroll = android.widget.ScrollView(ctx).apply { addView(box) }
+
+        androidx.appcompat.app.AlertDialog.Builder(ctx)
+            .setTitle("Camera settings (match the camera)")
+            .setMessage("Enter these to match how the camera itself is set up. VTB does not change the camera \u2014 it uses these to interpret the stream (frame rate, field of view, a centre red dot, and stabilization all affect analysis).")
+            .setView(scroll)
+            .setPositiveButton("Save") { _, _ ->
+                repo.putConfig(ctx, id, com.rfsat.vtb.capture.VideoSourceRepository.CameraConfig(
+                    videoMode = spVideo.selectedItem as String,
+                    zoom = spZoom.selectedItem as String,
+                    redDot = swRedDot.isChecked,
+                    stabilization = swStab.isChecked,
+                    exposureEv = spEv.selectedItem as String,
+                    whiteBalance = spWb.selectedItem as String,
+                    frequency = spFreq.selectedItem as String,
+                    noiseReduction = swNr.isChecked
+                ))
+                notifyUser("Camera settings saved for this source.")
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
 }
